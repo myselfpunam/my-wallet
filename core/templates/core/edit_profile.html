@@ -1,0 +1,120 @@
+{% extends 'core/base.html' %}
+{% block title %}Edit Profile{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 fade-up">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Edit Profile</h1>
+        <p class="text-slate-400 text-sm mt-1">Update your personal information</p>
+    </div>
+    <a href="{% url 'profile' %}" class="btn-primary">
+        ← Back to Profile
+    </a>
+</div>
+
+<!-- Edit Form Card -->
+<div class="card fade-up fade-up-1 max-w-2xl">
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Personal Information Section -->
+        <div>
+            <h2 class="text-lg font-bold text-white mb-4">Personal Information</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- First Name -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">First Name *</label>
+                    {{ form.first_name }}
+                    {% if form.first_name.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.first_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Last Name -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Last Name</label>
+                    {{ form.last_name }}
+                    {% if form.last_name.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.last_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Information Section -->
+        <div>
+            <h2 class="text-lg font-bold text-white mb-4">Contact Information</h2>
+            <div class="space-y-4">
+                <!-- Phone Number -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Phone Number</label>
+                    {{ form.phone_number }}
+                    {% if form.phone_number.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.phone_number.errors.0 }}</p>
+                    {% endif %}
+                </div>
+
+                <!-- Address -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Address</label>
+                    {{ form.address }}
+                    {% if form.address.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.address.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Profile Picture Section -->
+        <div>
+            <h2 class="text-lg font-bold text-white mb-4">Profile Picture</h2>
+            <div class="space-y-4">
+                <!-- Current Picture Preview -->
+                {% if form.instance.profile_picture %}
+                    <div class="flex items-center gap-4">
+                        <img src="{{ form.instance.profile_picture.url }}" alt="Current profile picture" 
+                             class="w-24 h-24 rounded-xl object-cover border-2 border-indigo-500/30">
+                        <div>
+                            <p class="text-slate-300 text-sm font-medium">Current Picture</p>
+                            <p class="text-slate-500 text-xs mt-1">Upload a new picture to replace it</p>
+                        </div>
+                    </div>
+                {% endif %}
+
+                <!-- Upload Input -->
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">Upload New Picture</label>
+                    {{ form.profile_picture }}
+                     <p class="text-slate-500 text-xs mt-2">
+                         📝 JPG or PNG format • Maximum 5MB
+                     </p>
+                    {% if form.profile_picture.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.profile_picture.errors.0 }}</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Actions -->
+        <div class="flex gap-3 pt-6 border-t border-slate-700">
+            <button type="submit" class="btn-primary flex-1">
+                💾 Save Changes
+            </button>
+            <a href="{% url 'profile' %}" class="flex-1 inline-flex items-center justify-center px-4 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl font-semibold transition-colors">
+                ✕ Cancel
+            </a>
+        </div>
+
+        <!-- Non-field Errors -->
+        {% if form.non_field_errors %}
+            <div class="mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                {% for error in form.non_field_errors %}
+                    <p class="text-red-400 text-sm">✗ {{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </form>
+</div>
+
+{% endblock %}

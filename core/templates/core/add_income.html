@@ -1,0 +1,59 @@
+{% extends 'core/base.html' %}
+{% block title %}Add Income{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto fade-up">
+    <!-- Header -->
+    <div class="mb-8">
+        <div class="flex items-center gap-3 mb-1">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center text-xl">💹</div>
+            <h1 class="text-2xl font-bold text-white">Add Income</h1>
+        </div>
+        <p class="text-slate-400 text-sm mt-1 ml-13">Record a new income transaction</p>
+    </div>
+
+    <div class="card" style="border-color: rgba(16,185,129,0.2); background: linear-gradient(145deg, rgba(16,185,129,0.05) 0%, #161b27 100%);">
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Amount (£)</label>
+                {{ form.amount }}
+                {% if form.amount.errors %}<p class="text-red-400 text-xs mt-1">{{ form.amount.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Source</label>
+                {{ form.category }}
+                {% if form.category.errors %}<p class="text-red-400 text-xs mt-1">{{ form.category.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Date</label>
+                {{ form.date }}
+                {% if form.date.errors %}<p class="text-red-400 text-xs mt-1">{{ form.date.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Note <span class="text-slate-600">(optional)</span></label>
+                {{ form.note }}
+                {% if form.note.errors %}<p class="text-red-400 text-xs mt-1">{{ form.note.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="btn-primary btn-green flex-1 text-sm">
+                    ✓ &nbsp;Save Income
+                </button>
+                <a href="{% url 'dashboard' %}" class="flex-1 text-center py-3 px-4 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all text-sm font-medium">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Quick tip -->
+    <div class="mt-4 px-4 py-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10">
+        <p class="text-emerald-400/70 text-xs">💡 Tip: Regular income tracking helps you understand your earning patterns over time.</p>
+    </div>
+</div>
+{% endblock %}

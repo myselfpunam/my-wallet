@@ -1,0 +1,125 @@
+{% extends 'core/base.html' %}
+{% block title %}Transactions{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 fade-up">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Transactions</h1>
+        <p class="text-slate-400 text-sm mt-1">Bank statement view</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'add_income' %}" class="btn-primary btn-green text-sm py-2 px-4">+ Income</a>
+        <a href="{% url 'add_expense' %}" class="btn-primary btn-red text-sm py-2 px-4">+ Expense</a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-5 fade-up fade-up-1">
+    <form method="get" class="flex flex-wrap items-center gap-3">
+        <select name="month" class="bg-slate-800 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            {% for m in months_list %}
+            <option value="{{ m.value }}" {% if m.value == selected_month %}selected{% endif %}>{{ m.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="year" class="bg-slate-800 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            {% for y in years_list %}
+            <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+        <select name="type" class="bg-slate-800 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="all" {% if filter_type == 'all' %}selected{% endif %}>All Types</option>
+            <option value="income" {% if filter_type == 'income' %}selected{% endif %}>Income Only</option>
+            <option value="expense" {% if filter_type == 'expense' %}selected{% endif %}>Expenses Only</option>
+        </select>
+        <button type="submit" class="btn-primary text-sm py-2.5 px-5">Apply</button>
+    </form>
+</div>
+
+<!-- Summary Strip -->
+<div class="grid grid-cols-3 gap-3 mb-5 fade-up fade-up-2">
+    <div class="card py-3 text-center">
+        <p class="text-slate-500 text-xs mb-1">Income</p>
+        <p class="text-emerald-400 font-bold font-mono">£{{ stats.total_income|floatformat:2 }}</p>
+    </div>
+    <div class="card py-3 text-center">
+        <p class="text-slate-500 text-xs mb-1">Expenses</p>
+        <p class="text-red-400 font-bold font-mono">£{{ stats.total_expense|floatformat:2 }}</p>
+    </div>
+    <div class="card py-3 text-center">
+        <p class="text-slate-500 text-xs mb-1">Balance</p>
+        <p class="{% if stats.balance >= 0 %}text-indigo-400{% else %}text-red-400{% endif %} font-bold font-mono">£{{ stats.balance|floatformat:2 }}</p>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card fade-up fade-up-3">
+    {% if transactions %}
+    <div class="overflow-x-auto -mx-6 -mb-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-white/5">
+                    <th class="text-left text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Date</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Type</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden sm:table-cell">Category / Source</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden md:table-cell">Note</th>
+                    <th class="text-right text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Amount</th>
+                    <th class="text-right text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/3">
+                {% for tx in transactions %}
+                <tr class="table-row transition-colors group">
+                    <td class="px-6 py-4">
+                        <p class="text-slate-300 font-medium">{{ tx.date|date:"d M" }}</p>
+                        <p class="text-slate-600 text-xs">{{ tx.date|date:"Y" }}</p>
+                    </td>
+                    <td class="px-4 py-4">
+                        <span class="{% if tx.type == 'income' %}badge-income{% else %}badge-expense{% endif %}">
+                            {% if tx.type == 'income' %}↑{% else %}↓{% endif %} {{ tx.type|title }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4 hidden sm:table-cell">
+                        <div class="flex items-center gap-2">
+                            <span class="text-lg">{{ tx.get_category_icon }}</span>
+                            <span class="text-slate-300">{{ tx.get_category_display_name }}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-4 hidden md:table-cell">
+                        <span class="text-slate-500 text-xs">{{ tx.note|truncatechars:35|default:"—" }}</span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <span class="font-semibold font-mono {% if tx.type == 'income' %}text-emerald-400{% else %}text-red-400{% endif %}">
+                            {% if tx.type == 'income' %}+{% else %}-{% endif %}£{{ tx.amount|floatformat:2 }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a href="{% url 'edit_transaction' tx.pk %}"
+                                class="text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1.5 rounded-lg transition-all">Edit</a>
+                            <a href="{% url 'delete_transaction' tx.pk %}"
+                                class="text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-2.5 py-1.5 rounded-lg transition-all">Delete</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <!-- Footer count -->
+    <div class="pt-4 border-t border-white/5 mt-4">
+        <p class="text-slate-600 text-xs">{{ transactions|length }} transaction{{ transactions|length|pluralize }} found</p>
+    </div>
+    {% else %}
+    <div class="text-center py-16">
+        <div class="text-6xl mb-4 opacity-20">🗂️</div>
+        <h3 class="text-slate-400 font-medium mb-2">No transactions found</h3>
+        <p class="text-slate-600 text-sm mb-6">Try selecting a different month or add your first transaction.</p>
+        <div class="flex justify-center gap-3">
+            <a href="{% url 'add_income' %}" class="btn-primary btn-green text-sm py-2 px-5">+ Add Income</a>
+            <a href="{% url 'add_expense' %}" class="btn-primary btn-red text-sm py-2 px-5">+ Add Expense</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

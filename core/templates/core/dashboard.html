@@ -1,0 +1,289 @@
+{% extends 'core/base.html' %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 fade-up">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Dashboard</h1>
+        <p class="text-slate-400 text-sm mt-1">Your financial overview</p>
+    </div>
+    <!-- Month/Year Selector -->
+    <form method="get" id="period-form" class="flex items-center gap-2">
+        <select name="month" onchange="document.getElementById('period-form').submit()"
+            class="bg-[#161b27] border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+            {% for m in months_list %}
+            <option value="{{ m.value }}" {% if m.value == selected_month %}selected{% endif %}>{{ m.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="year" onchange="document.getElementById('period-form').submit()"
+            class="bg-[#161b27] border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+            {% for y in years_list %}
+            <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </form>
+</div>
+
+<!-- Stat Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <!-- Income -->
+    <div class="card card-hover stat-card-income fade-up fade-up-1">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-slate-400 text-sm font-medium mb-3">Total Income</p>
+                <p class="text-3xl font-bold text-emerald-400 font-mono">£{{ stats.total_income|floatformat:2 }}</p>
+                <p class="text-slate-500 text-xs mt-2">This period</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center text-2xl flex-shrink-0">💹</div>
+        </div>
+    </div>
+
+    <!-- Expense -->
+    <div class="card card-hover stat-card-expense fade-up fade-up-2">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-slate-400 text-sm font-medium mb-3">Total Expenses</p>
+                <p class="text-3xl font-bold text-red-400 font-mono">£{{ stats.total_expense|floatformat:2 }}</p>
+                <p class="text-slate-500 text-xs mt-2">This period</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center text-2xl flex-shrink-0">💸</div>
+        </div>
+    </div>
+
+    <!-- Monthly Balance -->
+    <div class="card card-hover stat-card-balance fade-up fade-up-3">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-slate-400 text-sm font-medium mb-3">Monthly Balance</p>
+                <p class="text-3xl font-bold {% if stats.balance >= 0 %}text-indigo-400{% else %}text-red-400{% endif %} font-mono">
+                    {% if stats.balance < 0 %}-£{{ stats.balance|floatformat:2|slice:"1:" }}{% else %}£{{ stats.balance|floatformat:2 }}{% endif %}
+                </p>
+                <p class="text-slate-500 text-xs mt-2">This period</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 flex items-center justify-center text-2xl flex-shrink-0">📊</div>
+        </div>
+    </div>
+
+       <!-- Overall Balance -->
+      <div class="card card-hover stat-card-overall fade-up fade-up-4">
+          <div class="flex items-start justify-between">
+              <div>
+                  <p class="text-slate-400 text-sm font-medium mb-3">Overall Balance</p>
+                  <p class="text-3xl font-bold {% if overall_balance >= 0 %}text-violet-400{% else %}text-red-400{% endif %} font-mono">
+                      {% if overall_balance < 0 %}-£{{ overall_balance|floatformat:2|slice:"1:" }}{% else %}£{{ overall_balance|floatformat:2 }}{% endif %}
+                  </p>
+                  <p class="text-slate-500 text-xs mt-2">All time</p>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-violet-500/15 flex items-center justify-center text-2xl flex-shrink-0">⚖️</div>
+          </div>
+      </div>
+
+      <!-- Active Lenders -->
+      <div class="card card-hover fade-up fade-up-5">
+          <div class="flex items-start justify-between">
+              <div>
+                  <p class="text-slate-400 text-sm font-medium mb-3">Active Lenders</p>
+                  <p class="text-3xl font-bold text-violet-400 font-mono">{{ active_lenders_count }}</p>
+                  <p class="text-slate-500 text-xs mt-2">Still owed money</p>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-violet-500/15 flex items-center justify-center text-2xl flex-shrink-0">👥</div>
+          </div>
+      </div>
+
+      <!-- Outstanding Loan -->
+      <div class="card card-hover fade-up fade-up-5 {% if outstanding_loan > 0 %}bg-gradient-to-br from-amber-500/10 to-orange-500/5 border border-amber-500/20{% else %}bg-[#161b27] border border-white/5{% endif %}">
+          <div class="flex items-start justify-between">
+              <div>
+                  <p class="text-slate-400 text-sm font-medium mb-3">Total Outstanding Loan</p>
+                  <p class="text-3xl font-bold {% if outstanding_loan > 0 %}text-amber-400{% else %}text-slate-400{% endif %} font-mono">
+                      {% if outstanding_loan > 0 %}&#2547;{{ outstanding_loan|floatformat:2 }}{% else %}&#2547;0.00{% endif %}
+                  </p>
+                  <p class="text-slate-500 text-xs mt-2">To be repaid</p>
+              </div>
+              
+          </div>
+      </div>
+</div>
+
+<!-- Charts + Recent -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+    <!-- Pie Chart -->
+    <div class="card fade-up fade-up-4 lg:col-span-2">
+        <h2 class="text-white font-semibold mb-1">Income vs Expense</h2>
+        <p class="text-slate-500 text-xs mb-5">Current period breakdown</p>
+        {% if total_income_float > 0 or total_expense_float > 0 %}
+        <div class="flex items-center justify-center" style="height:220px;">
+            <canvas id="pieChart"></canvas>
+        </div>
+        <div class="flex items-center justify-center gap-6 mt-4">
+            <div class="flex items-center gap-2 text-sm">
+                <div class="w-3 h-3 rounded-full bg-emerald-400"></div>
+                <span class="text-slate-400">Income</span>
+            </div>
+            <div class="flex items-center gap-2 text-sm">
+                <div class="w-3 h-3 rounded-full bg-red-400"></div>
+                <span class="text-slate-400">Expense</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="flex flex-col items-center justify-center py-10 text-center">
+            <div class="text-5xl mb-3 opacity-30">📊</div>
+            <p class="text-slate-500 text-sm">No data for this period</p>
+            <div class="flex gap-2 mt-4">
+                <a href="{% url 'add_income' %}" class="text-xs text-emerald-400 hover:underline">Add income</a>
+                <span class="text-slate-600">·</span>
+                <a href="{% url 'add_expense' %}" class="text-xs text-red-400 hover:underline">Add expense</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Monthly Trend Chart -->
+    <div class="card fade-up fade-up-5 lg:col-span-3">
+        <h2 class="text-white font-semibold mb-1">6-Month Trend</h2>
+        <p class="text-slate-500 text-xs mb-5">Income and expense over time</p>
+        <div style="height:240px;">
+            <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="card fade-up">
+    <div class="flex items-center justify-between mb-5">
+        <div>
+            <h2 class="text-white font-semibold">Recent Transactions</h2>
+            <p class="text-slate-500 text-xs mt-0.5">Latest 5 entries</p>
+        </div>
+        <a href="{% url 'transactions' %}?month={{ selected_month }}&year={{ selected_year }}"
+            class="text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors">View all →</a>
+    </div>
+
+    {% if recent_transactions %}
+    <div class="space-y-2">
+        {% for tx in recent_transactions %}
+        <div class="table-row flex items-center gap-4 px-3 py-3 rounded-xl transition-colors">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0
+                {% if tx.type == 'income' %}bg-emerald-500/10{% else %}bg-red-500/10{% endif %}">
+                {{ tx.get_category_icon }}
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-slate-200 text-sm font-medium">{{ tx.get_category_display_name }}</p>
+                <p class="text-slate-500 text-xs">{{ tx.date|date:"d M Y" }}{% if tx.note %} · {{ tx.note|truncatechars:30 }}{% endif %}</p>
+            </div>
+            <div class="text-right flex-shrink-0">
+                <p class="font-semibold font-mono {% if tx.type == 'income' %}text-emerald-400{% else %}text-red-400{% endif %}">
+                    {% if tx.type == 'income' %}+{% else %}-{% endif %}£{{ tx.amount|floatformat:2 }}
+                </p>
+                <span class="{% if tx.type == 'income' %}badge-income{% else %}badge-expense{% endif %} text-xs">
+                    {{ tx.type|title }}
+                </span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <div class="text-5xl mb-3 opacity-20">🗂️</div>
+        <p class="text-slate-500 mb-4">No transactions for this period</p>
+        <div class="flex justify-center gap-3">
+            <a href="{% url 'add_income' %}" class="btn-primary btn-green text-sm py-2 px-4">+ Add Income</a>
+            <a href="{% url 'add_expense' %}" class="btn-primary btn-red text-sm py-2 px-4">+ Add Expense</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const monthlyData = {{ monthly_data_json|safe }};
+const catLabels = {{ category_labels_json|safe }};
+const catData = {{ category_data_json|safe }};
+const catColors = {{ category_colors_json|safe }};
+const totalIncome = {{ total_income_float }};
+const totalExpense = {{ total_expense_float }};
+
+Chart.defaults.color = '#94a3b8';
+Chart.defaults.font.family = 'DM Sans';
+
+// Pie Chart
+{% if total_income_float > 0 or total_expense_float > 0 %}
+const pieCtx = document.getElementById('pieChart').getContext('2d');
+new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+        labels: ['Income', 'Expense'],
+        datasets: [{
+            data: [totalIncome, totalExpense],
+            backgroundColor: ['rgba(16,185,129,0.8)', 'rgba(239,68,68,0.8)'],
+            borderColor: ['rgba(16,185,129,1)', 'rgba(239,68,68,1)'],
+            borderWidth: 2,
+            hoverOffset: 6,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '68%',
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1e2535',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                padding: 10,
+                callbacks: { label: ctx => ` £${ctx.parsed.toFixed(2)}` }
+            }
+        },
+        animation: { animateRotate: true, duration: 800 }
+    }
+});
+{% endif %}
+
+// Trend Chart
+const trendCtx = document.getElementById('trendChart').getContext('2d');
+new Chart(trendCtx, {
+    type: 'bar',
+    data: {
+        labels: monthlyData.map(d => d.month),
+        datasets: [
+            {
+                label: 'Income',
+                data: monthlyData.map(d => d.income),
+                backgroundColor: 'rgba(16,185,129,0.6)',
+                borderColor: 'rgba(16,185,129,1)',
+                borderWidth: 1.5,
+                borderRadius: 6,
+                borderSkipped: false,
+            },
+            {
+                label: 'Expense',
+                data: monthlyData.map(d => d.expense),
+                backgroundColor: 'rgba(239,68,68,0.6)',
+                borderColor: 'rgba(239,68,68,1)',
+                borderWidth: 1.5,
+                borderRadius: 6,
+                borderSkipped: false,
+            }
+        ]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { position: 'top', labels: { padding: 16, usePointStyle: true, pointStyleWidth: 8 } },
+            tooltip: {
+                backgroundColor: '#1e2535', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 10,
+                callbacks: { label: ctx => ` £${ctx.parsed.y.toFixed(2)}` }
+            }
+        },
+        scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.04)' }, border: { display: false } },
+            y: { grid: { color: 'rgba(255,255,255,0.04)' }, border: { display: false },
+                ticks: { callback: v => '£' + v } }
+        },
+        animation: { duration: 700 }
+    }
+});
+</script>
+{% endblock %}

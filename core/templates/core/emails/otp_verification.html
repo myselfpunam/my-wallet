@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <title>Verify your {{ app_name }} account</title>
+  <!--[if mso]>
+  <noscript>
+    <xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml>
+  </noscript>
+  <![endif]-->
+</head>
+<body style="margin:0;padding:0;background-color:#0d1117;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+
+  <!-- Wrapper -->
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+         style="background-color:#0d1117;padding:40px 20px;">
+    <tr>
+      <td align="center">
+
+        <!-- Card -->
+        <table role="presentation" cellpadding="0" cellspacing="0" width="520"
+               style="background-color:#161b22;border-radius:16px;border:1px solid #21262d;overflow:hidden;max-width:520px;">
+
+          <!-- Header band -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);padding:32px 40px;text-align:center;">
+              <div style="display:inline-block;width:52px;height:52px;background:rgba(255,255,255,0.15);
+                          border-radius:14px;line-height:52px;font-size:24px;font-weight:900;color:#ffffff;
+                          letter-spacing:-1px;margin-bottom:12px;">W</div>
+              <h1 style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
+                Verify your email
+              </h1>
+              <p style="margin:6px 0 0;font-size:14px;color:rgba(255,255,255,0.75);">
+                {{ app_name }} · Account Activation
+              </p>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:36px 40px;">
+
+              <p style="margin:0 0 20px;font-size:15px;color:#94a3b8;line-height:1.6;">
+                Hi <strong style="color:#e2e8f0;">{{ display_name }}</strong>,
+              </p>
+
+              <p style="margin:0 0 28px;font-size:15px;color:#94a3b8;line-height:1.6;">
+                Thanks for signing up for <strong style="color:#e2e8f0;">{{ app_name }}</strong>!
+                Use the verification code below to activate your account.
+              </p>
+
+              <!-- OTP box -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+                     style="margin-bottom:28px;">
+                <tr>
+                  <td align="center"
+                      style="background:linear-gradient(135deg,rgba(99,102,241,0.12) 0%,rgba(139,92,246,0.12) 100%);
+                             border:1px solid rgba(99,102,241,0.3);border-radius:14px;
+                             padding:24px 32px;">
+                    <p style="margin:0 0 6px;font-size:12px;font-weight:600;
+                               color:#6366f1;letter-spacing:3px;text-transform:uppercase;">
+                      Verification Code
+                    </p>
+                    <p style="margin:0;font-size:42px;font-weight:800;color:#ffffff;
+                               letter-spacing:14px;font-family:'Courier New',monospace;">
+                      {{ otp_code }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Expiry notice -->
+              <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+                     style="margin-bottom:28px;">
+                <tr>
+                  <td style="background:rgba(234,179,8,0.08);border:1px solid rgba(234,179,8,0.2);
+                             border-radius:10px;padding:14px 18px;">
+                    <p style="margin:0;font-size:13px;color:#fbbf24;line-height:1.5;">
+                      ⏰ &nbsp;This code expires in <strong>{{ expiry_minutes }} minutes</strong>.
+                      Do not share it with anyone.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin:0 0 8px;font-size:14px;color:#64748b;line-height:1.6;">
+                If you didn't create an account with {{ app_name }}, you can safely ignore this email —
+                no account will be activated without this code.
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background:#0d1117;border-top:1px solid #21262d;padding:20px 40px;text-align:center;">
+              <p style="margin:0;font-size:12px;color:#475569;">
+                © {{ app_name }} &nbsp;·&nbsp;
+                Sent to you because you started registration.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+        <!-- /Card -->
+
+      </td>
+    </tr>
+  </table>
+  <!-- /Wrapper -->
+
+</body>
+</html>

@@ -1,0 +1,53 @@
+{% extends 'core/base.html' %}
+{% block title %}Edit Transaction{% endblock %}
+
+{% block content %}
+<div class="max-w-xl mx-auto fade-up">
+    <div class="mb-8">
+        <div class="flex items-center gap-3 mb-1">
+            <div class="w-10 h-10 rounded-xl {% if transaction.type == 'income' %}bg-emerald-500/15{% else %}bg-red-500/15{% endif %} flex items-center justify-center text-xl">
+                {{ transaction.get_category_icon }}
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-white">Edit Transaction</h1>
+                <p class="text-slate-500 text-xs">{{ transaction.type|title }} · {{ transaction.date|date:"d M Y" }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="border-color: {% if transaction.type == 'income' %}rgba(16,185,129,0.2){% else %}rgba(239,68,68,0.2){% endif %};">
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Amount (£)</label>
+                {{ form.amount }}
+                {% if form.amount.errors %}<p class="text-red-400 text-xs mt-1">{{ form.amount.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">
+                    {% if transaction.type == 'income' %}Source{% else %}Category{% endif %}
+                </label>
+                {{ form.category }}
+                {% if form.category.errors %}<p class="text-red-400 text-xs mt-1">{{ form.category.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Date</label>
+                {{ form.date }}
+                {% if form.date.errors %}<p class="text-red-400 text-xs mt-1">{{ form.date.errors.0 }}</p>{% endif %}
+            </div>
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Note <span class="text-slate-600">(optional)</span></label>
+                {{ form.note }}
+            </div>
+            <div class="flex gap-3 pt-2">
+                <button type="submit" class="btn-primary {% if transaction.type == 'income' %}btn-green{% else %}btn-red{% endif %} flex-1 text-sm">
+                    ✓ &nbsp;Update Transaction
+                </button>
+                <a href="{% url 'transactions' %}" class="flex-1 text-center py-3 px-4 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all text-sm font-medium">
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

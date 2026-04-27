@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}My Wallet{% endblock %} — Personal Finance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['DM Sans', 'sans-serif'],
+                        mono: ['DM Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'DM Sans', sans-serif; }
+        body { background: #0d1117; }
+
+        .sidebar-link {
+            display: flex; align-items: center; gap: 12px;
+            padding: 11px 16px; border-radius: 12px;
+            color: #94a3b8; font-weight: 500; font-size: 14px;
+            transition: all 0.2s ease; text-decoration: none;
+        }
+        .sidebar-link:hover { background: rgba(99,102,241,0.12); color: #e2e8f0; }
+        .sidebar-link.active { background: rgba(99,102,241,0.2); color: #818cf8; }
+        .sidebar-link .icon { width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.05); font-size: 16px; flex-shrink: 0; }
+        .sidebar-link.active .icon { background: rgba(99,102,241,0.3); }
+
+        .card { background: #161b27; border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px; padding: 24px; }
+        .card-hover { transition: all 0.25s ease; }
+        .card-hover:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+
+        .stat-card-income { background: linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.08) 100%);
+            border-color: rgba(16,185,129,0.2); }
+        .stat-card-expense { background: linear-gradient(135deg, rgba(239,68,68,0.12) 0%, rgba(220,38,38,0.08) 100%);
+            border-color: rgba(239,68,68,0.2); }
+        .stat-card-balance { background: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(79,70,229,0.08) 100%);
+            border-color: rgba(99,102,241,0.2); }
+
+        .badge-income { background: rgba(16,185,129,0.15); color: #34d399; border-radius: 6px;
+            padding: 3px 10px; font-size: 12px; font-weight: 600; }
+        .badge-expense { background: rgba(239,68,68,0.15); color: #f87171; border-radius: 6px;
+            padding: 3px 10px; font-size: 12px; font-weight: 600; }
+
+        .table-row:hover { background: rgba(255,255,255,0.03); }
+
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.4s ease forwards; }
+        .fade-up-1 { animation-delay: 0.05s; opacity: 0; }
+        .fade-up-2 { animation-delay: 0.1s; opacity: 0; }
+        .fade-up-3 { animation-delay: 0.15s; opacity: 0; }
+        .fade-up-4 { animation-delay: 0.2s; opacity: 0; }
+        .fade-up-5 { animation-delay: 0.25s; opacity: 0; }
+
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.3); }
+            50% { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
+        }
+        .avatar { animation: pulse-glow 3s ease-in-out infinite; }
+
+        .btn-primary { background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white; padding: 12px 24px; border-radius: 12px; font-weight: 600;
+            border: none; cursor: pointer; transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(99,102,241,0.3); display: inline-block; }
+        .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
+        .btn-primary:active { transform: translateY(0); }
+
+        .btn-green { background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 4px 15px rgba(16,185,129,0.3); }
+        .btn-green:hover { box-shadow: 0 6px 20px rgba(16,185,129,0.4); }
+
+        .btn-red { background: linear-gradient(135deg, #ef4444, #dc2626);
+            box-shadow: 0 4px 15px rgba(239,68,68,0.3); }
+        .btn-red:hover { box-shadow: 0 6px 20px rgba(239,68,68,0.4); }
+
+        select option { background: #1e2535; color: white; }
+
+        .mobile-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            z-index: 40; backdrop-filter: blur(2px); }
+        .mobile-overlay.active { display: block; }
+
+        @media (max-width: 1024px) {
+            #sidebar { transform: translateX(-100%); transition: transform 0.3s ease; z-index: 50; }
+            #sidebar.open { transform: translateX(0); }
+            #main-content { margin-left: 0 !important; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="h-full text-slate-100">
+
+<!-- SIDEBAR -->
+{% if user.is_authenticated %}
+<div id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-[#0d1117] border-r border-white/5 flex flex-col z-50">
+    <div class="px-6 py-6 border-b border-white/5">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">F</div>
+            <div>
+                <div class="text-white font-bold text-lg leading-none">My Wallet</div>
+                <div class="text-slate-500 text-xs mt-0.5">Finance Manager</div>
+            </div>
+        </div>
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
+        <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider px-3 mb-3">Menu</div>
+        <a href="{% url 'dashboard' %}" class="sidebar-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+            <span class="icon">⬛</span> Dashboard
+        </a>
+        <a href="{% url 'add_income' %}" class="sidebar-link {% if request.resolver_match.url_name == 'add_income' %}active{% endif %}">
+            <span class="icon">➕</span> Add Income
+        </a>
+        <a href="{% url 'add_expense' %}" class="sidebar-link {% if request.resolver_match.url_name == 'add_expense' %}active{% endif %}">
+            <span class="icon">➖</span> Add Expense
+        </a>
+        <a href="{% url 'transactions' %}" class="sidebar-link {% if request.resolver_match.url_name == 'transactions' %}active{% endif %}">
+            <span class="icon">📋</span> Transactions
+        </a>
+        <a href="{% url 'analytics' %}" class="sidebar-link {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
+            <span class="icon">📊</span> Analytics
+        </a>
+        <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider px-3 mb-3 mt-5">Loans</div>
+        <a href="{% url 'loans' %}" class="sidebar-link {% if request.resolver_match.url_name == 'loans' %}active{% endif %}">
+            <span class="icon">💳</span> Loan Overview
+        </a>
+        <a href="{% url 'add_loan' %}" class="sidebar-link {% if request.resolver_match.url_name == 'add_loan' %}active{% endif %}">
+            <span class="icon">📥</span> Take Loan
+        </a>
+        <a href="{% url 'loan_payment' %}" class="sidebar-link {% if request.resolver_match.url_name == 'loan_payment' %}active{% endif %}">
+            <span class="icon">💸</span> Loan Payment
+        </a>
+    </nav>
+
+    <div class="px-3 py-4 border-t border-white/5">
+        <!-- Profile Section - Clickable -->
+        <a href="{% url 'profile' %}" class="flex items-center gap-3 px-3 py-3 rounded-xl bg-white/3 hover:bg-white/5 transition-colors mb-2 cursor-pointer">
+            <div class="avatar w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
+                {% if user.profile.profile_picture %}
+                    <img src="{{ user.profile.profile_picture.url }}" alt="Profile" class="w-full h-full object-cover">
+                {% else %}
+                    {{ user.first_name.0|default:user.username.0|upper }}
+                {% endif %}
+            </div>
+            <div class="min-w-0">
+                <div class="text-white text-sm font-semibold truncate">{{ user.first_name|default:user.username }}</div>
+                <div class="text-slate-500 text-xs truncate">View Profile</div>
+            </div>
+        </a>
+        <a href="{% url 'logout' %}" class="sidebar-link w-full">
+            <span class="icon">🚪</span> Logout
+        </a>
+    </div>
+</div>
+
+<!-- MOBILE OVERLAY -->
+<div class="mobile-overlay" id="mobile-overlay" onclick="closeSidebar()"></div>
+{% endif %}
+
+<!-- MAIN CONTENT -->
+<div id="main-content" class="{% if user.is_authenticated %}lg:ml-64{% endif %} min-h-full">
+    <!-- Mobile Header -->
+    <div class="lg:hidden flex items-center justify-between px-4 py-4 bg-[#0d1117] border-b border-white/5 sticky top-0 z-30">
+        <button onclick="toggleSidebar()" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+        <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">M</div>
+            <span class="text-white font-bold">My Wallet</span>
+        </div>
+        <a href="{% url 'profile' %}" class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden border border-white/10">
+            {% if user.is_authenticated and user.profile.profile_picture %}
+                <img src="{{ user.profile.profile_picture.url }}" alt="Profile" class="w-full h-full object-cover">
+            {% elif user.is_authenticated %}
+                {{ user.first_name.0|default:user.username.0|upper }}
+            {% endif %}
+        </a>
+    </div>
+
+    <!-- Flash Messages -->
+    {% if messages %}
+    <div class="px-6 pt-4">
+        {% for message in messages %}
+        <div class="flex items-center gap-3 px-4 py-3 rounded-xl mb-2 text-sm font-medium
+            {% if message.tags == 'success' %}bg-emerald-500/10 border border-emerald-500/20 text-emerald-400
+            {% elif message.tags == 'error' %}bg-red-500/10 border border-red-500/20 text-red-400
+            {% else %}bg-indigo-500/10 border border-indigo-500/20 text-indigo-400{% endif %}"
+            id="msg-{{ forloop.counter }}">
+            <span>{% if message.tags == 'success' %}✓{% elif message.tags == 'error' %}✗{% else %}ℹ{% endif %}</span>
+            <span>{{ message }}</span>
+            <button onclick="document.getElementById('msg-{{ forloop.counter }}').remove()" class="ml-auto opacity-60 hover:opacity-100 text-lg leading-none">×</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="p-6">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+
+<script>
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('mobile-overlay').classList.toggle('active');
+}
+function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('mobile-overlay').classList.remove('active');
+}
+setTimeout(() => {
+    document.querySelectorAll('[id^="msg-"]').forEach(el => {
+        el.style.transition = 'opacity 0.5s ease';
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 500);
+    });
+}, 4000);
+</script>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>
