@@ -26,7 +26,12 @@ urlpatterns = [
     path('loan-payment/', views.loan_payment_view, name='loan_payment'),
     path('loans/edit/<int:pk>/', views.edit_loan_view, name='edit_loan'),
     path('loans/delete/<int:pk>/', views.delete_loan_view, name='delete_loan'),
-    
+    path('receivables/', views.receivables_view, name='receivables'),
+    path('add-receivable/', views.add_receivable_view, name='add_receivable'),
+    path('receivable-payment/', views.receivable_payment_view, name='receivable_payment'),
+    path('receivables/edit/<int:pk>/', views.edit_receivable_view, name='edit_receivable'),
+    path('receivables/delete/<int:pk>/', views.delete_receivable_view, name='delete_receivable'),
+
     # Profile management routes
     path('profile/', views.profile_view, name='profile'),
     path('profile/edit/', views.edit_profile_view, name='edit_profile'),

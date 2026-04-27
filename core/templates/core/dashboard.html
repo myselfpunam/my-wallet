@@ -101,7 +101,20 @@
                   </p>
                   <p class="text-slate-500 text-xs mt-2">To be repaid</p>
               </div>
-              
+          </div>
+      </div>
+
+      <!-- Outstanding Receivable -->
+      <div class="card card-hover fade-up fade-up-5 {% if outstanding_receivable > 0 %}bg-gradient-to-br from-teal-500/10 to-cyan-500/5 border border-teal-500/20{% else %}bg-[#161b27] border border-white/5{% endif %}">
+          <div class="flex items-start justify-between">
+              <div>
+                  <p class="text-slate-400 text-sm font-medium mb-3">Total Receivables (Pawna)</p>
+                  <p class="text-3xl font-bold {% if outstanding_receivable > 0 %}text-teal-400{% else %}text-slate-400{% endif %} font-mono">
+                      {% if outstanding_receivable > 0 %}&#2547;{{ outstanding_receivable|floatformat:2 }}{% else %}&#2547;0.00{% endif %}
+                  </p>
+                  <p class="text-slate-500 text-xs mt-2">To be received</p>
+              </div>
+              <div class="w-12 h-12 rounded-2xl bg-teal-500/15 flex items-center justify-center text-2xl flex-shrink-0">🤝</div>
           </div>
       </div>
 </div>
@@ -145,6 +158,35 @@
         <p class="text-slate-500 text-xs mb-5">Income and expense over time</p>
         <div style="height:240px;">
             <canvas id="trendChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Loan vs Receivables Chart -->
+<div class="card mb-6 fade-up">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+        <div>
+            <h2 class="text-white font-semibold">Loan vs Receivables</h2>
+            <p class="text-slate-500 text-xs mt-0.5">Compare what you owe vs what others owe you</p>
+        </div>
+        <div class="flex items-center gap-4 text-xs text-slate-400">
+            <a href="{% url 'loans' %}" class="hover:text-amber-400 transition-colors">View Loans →</a>
+            <a href="{% url 'receivables' %}" class="hover:text-teal-400 transition-colors">View Receivables →</a>
+        </div>
+    </div>
+    <div style="height:220px;">
+        <canvas id="loanVsReceivableChart"></canvas>
+    </div>
+    <div class="flex items-center justify-center gap-8 mt-4">
+        <div class="flex items-center gap-2 text-sm">
+            <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+            <span class="text-slate-400">Loan (I owe)</span>
+            <span class="text-amber-400 font-mono font-semibold ml-1">&#2547;{{ outstanding_loan|floatformat:2 }}</span>
+        </div>
+        <div class="flex items-center gap-2 text-sm">
+            <div class="w-3 h-3 rounded-full bg-teal-400"></div>
+            <span class="text-slate-400">Receivable (owed to me)</span>
+            <span class="text-teal-400 font-mono font-semibold ml-1">&#2547;{{ outstanding_receivable|floatformat:2 }}</span>
         </div>
     </div>
 </div>
@@ -199,6 +241,8 @@
 {% block extra_scripts %}
 <script>
 const monthlyData = {{ monthly_data_json|safe }};
+const outstandingLoan = {{ outstanding_loan_float }};
+const outstandingReceivable = {{ outstanding_receivable_float }};
 const catLabels = {{ category_labels_json|safe }};
 const catData = {{ category_data_json|safe }};
 const catColors = {{ category_colors_json|safe }};
@@ -281,6 +325,40 @@ new Chart(trendCtx, {
             x: { grid: { color: 'rgba(255,255,255,0.04)' }, border: { display: false } },
             y: { grid: { color: 'rgba(255,255,255,0.04)' }, border: { display: false },
                 ticks: { callback: v => '£' + v } }
+        },
+        animation: { duration: 700 }
+    }
+});
+
+// Loan vs Receivables Bar Chart
+const lvrCtx = document.getElementById('loanVsReceivableChart').getContext('2d');
+new Chart(lvrCtx, {
+    type: 'bar',
+    data: {
+        labels: ['Outstanding Loan', 'Receivables (Pawna)'],
+        datasets: [{
+            label: 'Amount (৳)',
+            data: [outstandingLoan, outstandingReceivable],
+            backgroundColor: ['rgba(251,191,36,0.6)', 'rgba(20,184,166,0.6)'],
+            borderColor: ['rgba(251,191,36,1)', 'rgba(20,184,166,1)'],
+            borderWidth: 2,
+            borderRadius: 10,
+            borderSkipped: false,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1e2535', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 10,
+                callbacks: { label: ctx => ` ৳${ctx.parsed.y.toFixed(2)}` }
+            }
+        },
+        scales: {
+            x: { grid: { color: 'rgba(255,255,255,0.04)' }, border: { display: false } },
+            y: { grid: { color: 'rgba(255,255,255,0.04)' }, border: { display: false },
+                ticks: { callback: v => '৳' + v }, beginAtZero: true }
         },
         animation: { duration: 700 }
     }

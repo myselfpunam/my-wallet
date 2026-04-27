@@ -44,12 +44,14 @@ from .forms import (
     SignUpForm, LoginForm,
     IncomeForm, ExpenseForm,
     LoanForm, LoanPaymentForm,
+    ReceivableForm, ReceivablePaymentForm,
     ForgotPasswordForm, VerifyOTPForm, ResetPasswordForm,
     SignUpOTPForm, EditProfileForm, ChangePasswordForm,
 )
 from .models import (
     Transaction, EXPENSE_CATEGORIES, INCOME_SOURCES,
-    Loan, LoanPayment, PasswordResetToken, UserProfile,
+    Loan, LoanPayment, Receivable, ReceivablePayment,
+    PasswordResetToken, UserProfile,
 )
 from .utils import send_verification_email, send_password_reset_email
 
@@ -526,7 +528,7 @@ def dashboard_view(request):
     all_loans = Loan.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     all_paid  = LoanPayment.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     outstanding_loan = all_loans - all_paid
-    
+
     active_lenders_count = 0
     seen_lenders = set()
     for loan in Loan.objects.filter(user=request.user):
@@ -534,6 +536,18 @@ def dashboard_view(request):
             seen_lenders.add(loan.lender_name)
             if loan.get_remaining() > 0:
                 active_lenders_count += 1
+
+    all_receivables = Receivable.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    all_received    = ReceivablePayment.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    outstanding_receivable = all_receivables - all_received
+
+    active_debtors_count = 0
+    seen_debtors = set()
+    for rec in Receivable.objects.filter(user=request.user):
+        if rec.debtor_name not in seen_debtors:
+            seen_debtors.add(rec.debtor_name)
+            if rec.get_remaining() > 0:
+                active_debtors_count += 1
 
     monthly_data = []
     for i in range(5, -1, -1):
@@ -586,6 +600,9 @@ def dashboard_view(request):
         'outstanding_loan': outstanding_loan,
         'outstanding_loan_float': float(outstanding_loan),
         'active_lenders_count': active_lenders_count,
+        'outstanding_receivable': outstanding_receivable,
+        'outstanding_receivable_float': float(outstanding_receivable),
+        'active_debtors_count': active_debtors_count,
     }
     return render(request, 'core/dashboard.html', context)
 
@@ -859,6 +876,123 @@ def delete_loan_view(request, pk):
         messages.success(request, f'Loan of £{amount} from {lender} deleted.')
         return redirect('loans')
     return render(request, 'core/delete_loan_confirm.html', {'loan': loan})
+
+
+# ===========================================================================
+# Receivables
+# ===========================================================================
+
+@login_required
+def receivables_view(request):
+    all_receivable_objects = Receivable.objects.filter(user=request.user)
+    total_given    = all_receivable_objects.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    total_received = ReceivablePayment.objects.filter(user=request.user).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    outstanding    = total_given - total_received
+
+    filter_status       = request.GET.get('filter', 'all')
+    all_receivables_list = list(all_receivable_objects.order_by('-date', '-created_at'))
+
+    if filter_status == 'active':
+        receivables = [r for r in all_receivables_list if r.get_remaining() > 0]
+    elif filter_status == 'received':
+        receivables = [r for r in all_receivables_list if r.get_remaining() <= 0]
+    else:
+        receivables = all_receivables_list
+
+    receivable_details = [{
+        'id': r.id,
+        'debtor': r.debtor_name,
+        'given': float(r.amount),
+        'received': float(r.get_total_received()),
+        'due': float(r.get_remaining()),
+        'date': r.date,
+        'note': r.note,
+    } for r in receivables]
+
+    payment_history = []
+    for p in ReceivablePayment.objects.filter(user=request.user).select_related('receivable').order_by('-date', '-created_at'):
+        rec = Receivable.objects.filter(user=request.user, debtor_name=p.receivable.debtor_name).first()
+        payment_history.append({
+            'debtor': p.receivable.debtor_name,
+            'received': float(p.amount),
+            'date': p.date,
+            'note': p.note,
+            'remaining': float(rec.get_remaining()) if rec else 0,
+        })
+
+    context = {
+        'receivables': receivables,
+        'total_given': total_given,
+        'total_received': total_received,
+        'outstanding': outstanding,
+        'total_receivable_count': len(all_receivables_list),
+        'active_count': len([r for r in all_receivables_list if r.get_remaining() > 0]),
+        'received_count': len([r for r in all_receivables_list if r.get_remaining() <= 0]),
+        'filter_status': filter_status,
+        'receivable_details': receivable_details,
+        'payment_history': payment_history,
+    }
+    return render(request, 'core/receivables.html', context)
+
+
+@login_required
+def add_receivable_view(request):
+    if request.method == 'POST':
+        form = ReceivableForm(request.POST)
+        if form.is_valid():
+            receivable = form.save(commit=False)
+            receivable.user = request.user
+            receivable.save()
+            messages.success(request, f'Receivable of ৳{receivable.amount} from {receivable.debtor_name} added successfully!')
+            return redirect('receivables')
+        else:
+            messages.error(request, 'Please fix the errors below.')
+    else:
+        form = ReceivableForm(initial={'date': date.today()})
+    return render(request, 'core/add_receivable.html', {'form': form})
+
+
+@login_required
+def receivable_payment_view(request):
+    if request.method == 'POST':
+        form = ReceivablePaymentForm(request.POST, user=request.user)
+        if form.is_valid():
+            payment = form.save(commit=False)
+            payment.user = request.user
+            payment.save()
+            messages.success(request, f'Received ৳{payment.amount} from {payment.receivable.debtor_name} recorded successfully!')
+            return redirect('receivables')
+        else:
+            messages.error(request, 'Please fix the errors below.')
+    else:
+        form = ReceivablePaymentForm(user=request.user, initial={'date': date.today()})
+    return render(request, 'core/receivable_payment.html', {'form': form})
+
+
+@login_required
+def edit_receivable_view(request, pk):
+    receivable = get_object_or_404(Receivable, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = ReceivableForm(request.POST, instance=receivable)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Receivable updated successfully!')
+            return redirect('receivables')
+    else:
+        form = ReceivableForm(instance=receivable)
+    return render(request, 'core/edit_receivable.html', {'form': form, 'receivable': receivable})
+
+
+@login_required
+def delete_receivable_view(request, pk):
+    receivable = get_object_or_404(Receivable, pk=pk, user=request.user)
+    if request.method == 'POST':
+        debtor = receivable.debtor_name
+        amount = receivable.amount
+        receivable.delete()
+        messages.success(request, f'Receivable of ৳{amount} from {debtor} deleted.')
+        return redirect('receivables')
+    return render(request, 'core/delete_receivable_confirm.html', {'receivable': receivable})
 
 
 # ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from .models import Transaction, INCOME_SOURCES, EXPENSE_CATEGORIES, Loan, LoanPayment, UserProfile
+from .models import Transaction, INCOME_SOURCES, EXPENSE_CATEGORIES, Loan, LoanPayment, Receivable, ReceivablePayment, UserProfile
 
 
 class SignUpForm(UserCreationForm):
@@ -177,6 +177,59 @@ class LoanPaymentForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             field.widget.attrs['class'] = input_class
         self.fields['loan'].widget.attrs['class'] += ' cursor-pointer'
+        self.fields['amount'].widget.attrs['placeholder'] = '0.00 (৳)'
+        self.fields['note'].widget.attrs['placeholder'] = 'Optional note...'
+        self.fields['date'].widget.attrs['class'] += ' cursor-pointer'
+
+
+class ReceivableForm(forms.ModelForm):
+    class Meta:
+        model = Receivable
+        fields = ['debtor_name', 'amount', 'date', 'note']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'note': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        input_class = (
+            'w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl '
+            'text-white placeholder-slate-400 focus:outline-none focus:ring-2 '
+            'focus:ring-teal-500 focus:border-transparent transition-all duration-200'
+        )
+        for field_name, field in self.fields.items():
+            field.widget.attrs['class'] = input_class
+        self.fields['debtor_name'].widget.attrs['placeholder'] = 'Enter person name'
+        self.fields['amount'].widget.attrs['placeholder'] = '0.00 (৳)'
+        self.fields['note'].widget.attrs['placeholder'] = 'Optional note...'
+        self.fields['date'].widget.attrs['class'] += ' cursor-pointer'
+
+
+class ReceivablePaymentForm(forms.ModelForm):
+    class Meta:
+        model = ReceivablePayment
+        fields = ['receivable', 'amount', 'date', 'note']
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'note': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
+        super().__init__(*args, **kwargs)
+        if user:
+            all_receivables = Receivable.objects.filter(user=user)
+            ids_with_balance = [r.id for r in all_receivables if r.get_remaining() > 0]
+            self.fields['receivable'].queryset = Receivable.objects.filter(id__in=ids_with_balance)
+        input_class = (
+            'w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl '
+            'text-white placeholder-slate-400 focus:outline-none focus:ring-2 '
+            'focus:ring-teal-500 focus:border-transparent transition-all duration-200'
+        )
+        for field_name, field in self.fields.items():
+            field.widget.attrs['class'] = input_class
+        self.fields['receivable'].widget.attrs['class'] += ' cursor-pointer'
         self.fields['amount'].widget.attrs['placeholder'] = '0.00 (৳)'
         self.fields['note'].widget.attrs['placeholder'] = 'Optional note...'
         self.fields['date'].widget.attrs['class'] += ' cursor-pointer'

@@ -1,0 +1,155 @@
+{% extends 'core/base.html' %}
+{% block title %}Receivables Overview{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 fade-up">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Receivables Overview</h1>
+        <p class="text-slate-400 text-sm mt-1">Track money others owe you and repayments received</p>
+    </div>
+    <div class="flex gap-2">
+        <a href="{% url 'receivable_payment' %}" class="btn-primary bg-emerald-600 hover:bg-emerald-500 text-sm py-2 px-4">+ Payment</a>
+        <a href="{% url 'add_receivable' %}" class="btn-primary bg-teal-600 hover:bg-teal-500 text-sm py-2 px-4">+ Receivable</a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-5 fade-up fade-up-1">
+    <form method="get" class="flex flex-wrap items-center gap-3">
+        <select name="filter" class="bg-slate-800 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <option value="all" {% if filter_status == 'all' %}selected{% endif %}>All Receivables</option>
+            <option value="active" {% if filter_status == 'active' %}selected{% endif %}>Pending Only</option>
+            <option value="received" {% if filter_status == 'received' %}selected{% endif %}>Fully Received</option>
+        </select>
+        <button type="submit" class="btn-primary text-sm py-2.5 px-5">Apply</button>
+    </form>
+</div>
+
+<!-- Summary Strip -->
+<div class="grid grid-cols-3 gap-3 mb-5 fade-up fade-up-2">
+    <div class="card py-3 text-center">
+        <p class="text-slate-500 text-xs mb-1">Total Given</p>
+        <p class="text-cyan-400 font-bold font-mono">৳{{ total_given|floatformat:2 }}</p>
+    </div>
+    <div class="card py-3 text-center">
+        <p class="text-slate-500 text-xs mb-1">Total Received</p>
+        <p class="text-emerald-400 font-bold font-mono">৳{{ total_received|floatformat:2 }}</p>
+    </div>
+    <div class="card py-3 text-center">
+        <p class="text-slate-500 text-xs mb-1">Outstanding</p>
+        <p class="{% if outstanding > 0 %}text-amber-400{% else %}text-emerald-400{% endif %} font-bold font-mono">৳{{ outstanding|floatformat:2 }}</p>
+    </div>
+</div>
+
+<!-- Receivables Table -->
+<div class="card fade-up fade-up-3">
+    {% if receivables %}
+    <div class="overflow-x-auto -mx-6 -mb-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-white/5">
+                    <th class="text-left text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Person</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Date</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden sm:table-cell">Amount</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden md:table-cell">Received</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Due</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden lg:table-cell">Note</th>
+                    <th class="text-right text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Status</th>
+                    <th class="text-right text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/3">
+                {% for rec in receivables %}
+                <tr class="table-row transition-colors group">
+                    <td class="px-6 py-4">
+                        <p class="text-slate-300 font-medium">{{ rec.debtor_name }}</p>
+                    </td>
+                    <td class="px-4 py-4">
+                        <p class="text-slate-400">{{ rec.date|date:"d M Y" }}</p>
+                    </td>
+                    <td class="px-4 py-4 hidden sm:table-cell">
+                        <span class="text-slate-300 font-mono">৳{{ rec.amount|floatformat:2 }}</span>
+                    </td>
+                    <td class="px-4 py-4 hidden md:table-cell">
+                        <span class="text-emerald-400 font-mono">৳{{ rec.get_total_received|floatformat:2 }}</span>
+                    </td>
+                    <td class="px-4 py-4">
+                        <span class="{% if rec.get_remaining > 0 %}text-amber-400{% else %}text-emerald-400{% endif %} font-mono">৳{{ rec.get_remaining|floatformat:2 }}</span>
+                    </td>
+                    <td class="px-4 py-4 hidden lg:table-cell">
+                        <span class="text-slate-500 text-xs">{{ rec.note|truncatechars:35|default:"—" }}</span>
+                    </td>
+                    <td class="px-4 py-4 text-right">
+                        <span class="{% if rec.get_remaining > 0 %}badge-expense{% else %}badge-income{% endif %} text-xs">
+                            {% if rec.get_remaining > 0 %}Pending{% else %}Received{% endif %}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <a href="{% url 'edit_receivable' rec.pk %}"
+                                class="text-xs text-teal-400 hover:text-teal-300 bg-teal-500/10 hover:bg-teal-500/20 px-2.5 py-1.5 rounded-lg transition-all">Edit</a>
+                            <a href="{% url 'delete_receivable' rec.pk %}"
+                                class="text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-2.5 py-1.5 rounded-lg transition-all">Delete</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="pt-4 border-t border-white/5 mt-4">
+        <p class="text-slate-600 text-xs">{{ receivables|length }} receivable{{ receivables|length|pluralize }} found</p>
+    </div>
+    {% else %}
+    <div class="text-center py-16">
+        <div class="text-6xl mb-4 opacity-20">🤝</div>
+        <h3 class="text-slate-400 font-medium mb-2">No receivables found</h3>
+        <p class="text-slate-600 text-sm mb-6">Try selecting a different filter or add your first receivable.</p>
+        <div class="flex justify-center gap-3">
+            <a href="{% url 'receivable_payment' %}" class="btn-primary bg-emerald-600 hover:bg-emerald-500 text-sm py-2 px-5">+ Add Payment</a>
+            <a href="{% url 'add_receivable' %}" class="btn-primary bg-teal-600 hover:bg-teal-500 text-sm py-2 px-5">+ Add Receivable</a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Payment History -->
+{% if payment_history %}
+<div class="card mt-6 fade-up">
+    <h2 class="text-white font-semibold mb-1">Payment History</h2>
+    <p class="text-slate-500 text-xs mb-5">All repayments received</p>
+    <div class="overflow-x-auto -mx-6 -mb-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-white/5">
+                    <th class="text-left text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Person</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Amount Received</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Date</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden md:table-cell">Remaining</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden lg:table-cell">Note</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/3">
+                {% for p in payment_history %}
+                <tr class="table-row transition-colors">
+                    <td class="px-6 py-4"><p class="text-slate-300 font-medium">{{ p.debtor }}</p></td>
+                    <td class="px-4 py-4"><span class="text-emerald-400 font-mono">৳{{ p.received|floatformat:2 }}</span></td>
+                    <td class="px-4 py-4"><p class="text-slate-400">{{ p.date|date:"d M Y" }}</p></td>
+                    <td class="px-4 py-4 hidden md:table-cell">
+                        <span class="{% if p.remaining > 0 %}text-amber-400{% else %}text-emerald-400{% endif %} font-mono">৳{{ p.remaining|floatformat:2 }}</span>
+                    </td>
+                    <td class="px-4 py-4 hidden lg:table-cell">
+                        <span class="text-slate-500 text-xs">{{ p.note|truncatechars:35|default:"—" }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="pt-4 border-t border-white/5 mt-4">
+        <p class="text-slate-600 text-xs">{{ payment_history|length }} payment{{ payment_history|length|pluralize }} recorded</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -142,6 +142,44 @@ class LoanPayment(models.Model):
         return f"Payment £{self.amount} for {self.loan.lender_name} ({self.date})"
 
 
+class Receivable(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='receivables')
+    debtor_name = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    note = models.TextField(blank=True, null=True)
+    date = models.DateField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f"Receivable from {self.debtor_name} - £{self.amount} ({self.date})"
+
+    def get_total_received(self):
+        return self.receivable_payments.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+    def get_remaining(self):
+        return self.amount - self.get_total_received()
+
+
+class ReceivablePayment(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='receivable_payments')
+    receivable = models.ForeignKey(Receivable, on_delete=models.CASCADE, related_name='receivable_payments')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    note = models.TextField(blank=True, null=True)
+    date = models.DateField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f"Received £{self.amount} from {self.receivable.debtor_name} ({self.date})"
+
+
 class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
     type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)

@@ -1,0 +1,44 @@
+{% extends 'core/base.html' %}
+{% block title %}Edit Receivable{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 fade-up">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Edit Receivable</h1>
+        <p class="text-slate-400 text-sm mt-1">Update receivable details</p>
+    </div>
+    <a href="{% url 'receivables' %}" class="text-slate-400 hover:text-white transition-colors">
+        ← Back to receivables
+    </a>
+</div>
+
+<div class="max-w-2xl">
+    <div class="card fade-up">
+        <form method="post">
+            {% csrf_token %}
+            <div class="space-y-6">
+                <div>
+                    <label class="block text-slate-400 text-sm font-medium mb-2">Person Name</label>
+                    {{ form.debtor_name }}
+                </div>
+                <div>
+                    <label class="block text-slate-400 text-sm font-medium mb-2">Amount (৳)</label>
+                    {{ form.amount }}
+                </div>
+                <div>
+                    <label class="block text-slate-400 text-sm font-medium mb-2">Date</label>
+                    {{ form.date }}
+                </div>
+                <div>
+                    <label class="block text-slate-400 text-sm font-medium mb-2">Note (Optional)</label>
+                    {{ form.note }}
+                </div>
+                <div class="flex gap-3 pt-4">
+                    <button type="submit" class="btn-primary flex-1" style="background: linear-gradient(135deg, #0d9488, #0f766e); box-shadow: 0 4px 15px rgba(13,148,136,0.3);">Update Receivable</button>
+                    <a href="{% url 'receivables' %}" class="px-6 py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-medium hover:bg-slate-700 transition-colors text-center">Cancel</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
