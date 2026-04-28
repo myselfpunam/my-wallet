@@ -1,0 +1,33 @@
+{% extends 'core/base.html' %}
+{% block title %}Delete Rent Setup{% endblock %}
+
+{% block content %}
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 fade-up">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Delete Rent Setup</h1>
+        <p class="text-slate-400 text-sm mt-1">Confirm deletion</p>
+    </div>
+    <a href="{% url 'rent' %}" class="text-slate-400 hover:text-white transition-colors">← Back to rent</a>
+</div>
+
+<div class="max-w-xl">
+    <div class="card fade-up">
+        <div class="text-center py-8">
+            <div class="text-6xl mb-4">⚠️</div>
+            <h2 class="text-xl font-semibold text-slate-200 mb-2">Delete "{{ setup.get_display_name }}"?</h2>
+            <p class="text-slate-500 mb-6">
+                This will permanently delete the rent setup of <span class="text-orange-400 font-mono">৳{{ setup.amount|floatformat:2 }}/month</span>
+                and <strong>all {{ setup.entries.count }} rent {{ setup.entries.count|pluralize:"entry,entries" }}</strong> linked to it.<br>
+                <span class="text-slate-600 text-sm">Note: Linked expense transactions will not be deleted.</span>
+            </p>
+            <form method="post">
+                {% csrf_token %}
+                <div class="flex gap-3 justify-center">
+                    <button type="submit" class="btn-primary btn-red">Delete Setup</button>
+                    <a href="{% url 'rent' %}" class="px-6 py-3 rounded-xl bg-slate-800 border border-slate-700 text-slate-400 font-medium hover:bg-slate-700 transition-colors">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

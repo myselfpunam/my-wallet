@@ -18,6 +18,13 @@
     <div class="card" style="border-color: {% if transaction.type == 'income' %}rgba(16,185,129,0.2){% else %}rgba(239,68,68,0.2){% endif %};">
         <form method="post" class="space-y-5">
             {% csrf_token %}
+            {% if transaction.type == 'expense' and form.title %}
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Title</label>
+                {{ form.title }}
+                {% if form.title.errors %}<p class="text-red-400 text-xs mt-1">{{ form.title.errors.0 }}</p>{% endif %}
+            </div>
+            {% endif %}
             <div>
                 <label class="block text-slate-300 text-sm font-medium mb-2">Amount (£)</label>
                 {{ form.amount }}

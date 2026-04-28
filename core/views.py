@@ -36,7 +36,7 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
-from django.db.models import Sum
+from django.db.models import Sum, Count
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 
@@ -45,12 +45,14 @@ from .forms import (
     IncomeForm, ExpenseForm,
     LoanForm, LoanPaymentForm,
     ReceivableForm, ReceivablePaymentForm,
+    PaymentReminderForm,
     ForgotPasswordForm, VerifyOTPForm, ResetPasswordForm,
     SignUpOTPForm, EditProfileForm, ChangePasswordForm,
 )
 from .models import (
     Transaction, EXPENSE_CATEGORIES, INCOME_SOURCES,
     Loan, LoanPayment, Receivable, ReceivablePayment,
+    PaymentReminder, ReminderEntry,
     PasswordResetToken, UserProfile,
 )
 from .utils import send_verification_email, send_password_reset_email
@@ -568,6 +570,7 @@ def dashboard_view(request):
         user=request.user, type='expense', date__year=year, date__month=month
     ).values('category').annotate(total=Sum('amount')).order_by('-total')
 
+    all_expense_cat_dict = dict(EXPENSE_CATEGORIES)
     category_labels = []
     category_data   = []
     category_colors = [
@@ -575,12 +578,34 @@ def dashboard_view(request):
         '#6366f1','#ec4899','#8b5cf6','#14b8a6','#f43f5e','#84cc16','#0ea5e9',
     ]
     for item in expense_breakdown:
-        all_choices = dict(EXPENSE_CATEGORIES)
-        category_labels.append(all_choices.get(item['category'], item['category'].title()))
+        category_labels.append(all_expense_cat_dict.get(item['category'], item['category'].replace('_', ' ').title()))
         category_data.append(float(item['total']))
+
+    top_spending_category = None
+    if expense_breakdown:
+        top = expense_breakdown[0]
+        top_spending_category = {
+            'name': all_expense_cat_dict.get(top['category'], top['category'].replace('_', ' ').title()),
+            'amount': top['total'],
+        }
 
     months_list = [{'value': i, 'name': calendar.month_name[i]} for i in range(1, 13)]
     years_list  = list(range(today.year - 3, today.year + 2))
+
+    # ── Reminder dashboard data ───────────────────────────────────────────
+    from .scheduler import generate_reminder_entries
+    generate_reminder_entries()
+
+    today_date = date.today()
+    reminders_overdue = ReminderEntry.objects.filter(
+        user=request.user, status=ReminderEntry.STATUS_PENDING,
+        due_date__lt=today_date,
+    ).select_related('reminder').order_by('due_date')
+
+    reminders_upcoming = ReminderEntry.objects.filter(
+        user=request.user, status=ReminderEntry.STATUS_PENDING,
+        due_date__gte=today_date,
+    ).select_related('reminder').order_by('due_date')[:3]
 
     context = {
         'stats': stats,
@@ -603,6 +628,9 @@ def dashboard_view(request):
         'outstanding_receivable': outstanding_receivable,
         'outstanding_receivable_float': float(outstanding_receivable),
         'active_debtors_count': active_debtors_count,
+        'reminders_overdue': reminders_overdue,
+        'reminders_upcoming': reminders_upcoming,
+        'top_spending_category': top_spending_category,
     }
     return render(request, 'core/dashboard.html', context)
 
@@ -759,6 +787,95 @@ def analytics_view(request):
         'total_expense_float': float(stats['total_expense']),
     }
     return render(request, 'core/analytics.html', context)
+
+
+# ===========================================================================
+# Expense Insights
+# ===========================================================================
+
+_INSIGHTS_ICONS = {
+    'food': '🍽️', 'travel': '✈️', 'tour': '🗺️', 'rent': '🏠',
+    'personal': '👤', 'family_support': '👨‍👩‍👧', 'lifestyle': '✨',
+    'transport': '🚗', 'shopping': '🛍️', 'healthcare': '🏥',
+    'entertainment': '🎬', 'utilities': '⚡', 'education': '📚',
+    'subscriptions': '📱', 'insurance': '🛡️', 'savings': '🏦', 'other': '📋',
+}
+
+_INSIGHTS_COLORS = [
+    '#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4',
+    '#6366f1', '#ec4899', '#8b5cf6', '#14b8a6', '#f43f5e',
+    '#84cc16', '#0ea5e9', '#a855f7', '#f59e0b', '#10b981',
+    '#3b82f6', '#64748b',
+]
+
+
+@login_required
+def expense_insights_view(request):
+    today = date.today()
+    selected_year     = int(request.GET.get('year',  today.year))
+    selected_month    = request.GET.get('month', '')
+    selected_category = request.GET.get('category', '')
+
+    base_filter = {'user': request.user, 'type': 'expense', 'date__year': selected_year}
+    if selected_month:
+        base_filter['date__month'] = int(selected_month)
+
+    all_expense_cats = dict(EXPENSE_CATEGORIES)
+
+    # Category summary (always over full period, ignoring category filter)
+    summary_qs = (
+        Transaction.objects.filter(**base_filter)
+        .values('category')
+        .annotate(total=Sum('amount'), count=Count('id'))
+        .order_by('-total')
+    )
+    category_summary = [
+        {
+            'key':   item['category'],
+            'name':  all_expense_cats.get(item['category'], item['category'].replace('_', ' ').title()),
+            'icon':  _INSIGHTS_ICONS.get(item['category'], '💰'),
+            'total': item['total'],
+            'count': item['count'],
+        }
+        for item in summary_qs
+    ]
+
+    total_expense = sum((c['total'] for c in category_summary), Decimal('0.00'))
+
+    # Transactions (apply category filter on top of base filter)
+    tx_filter = dict(base_filter)
+    if selected_category:
+        tx_filter['category'] = selected_category
+    transactions = Transaction.objects.filter(**tx_filter).order_by('-date', '-created_at')
+
+    selected_category_name  = all_expense_cats.get(selected_category, '') if selected_category else ''
+    selected_category_total = transactions.aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    chart_labels = [c['name']         for c in category_summary]
+    chart_data   = [float(c['total']) for c in category_summary]
+
+    months_list = [{'value': i, 'name': calendar.month_name[i]} for i in range(1, 13)]
+    years_list  = list(range(today.year - 3, today.year + 2))
+
+    context = {
+        'category_summary':         category_summary,
+        'transactions':             transactions,
+        'total_expense':            total_expense,
+        'selected_year':            selected_year,
+        'selected_month':           selected_month,
+        'selected_month_name':      calendar.month_name[int(selected_month)] if selected_month else 'All Months',
+        'selected_category':        selected_category,
+        'selected_category_name':   selected_category_name,
+        'selected_category_total':  selected_category_total,
+        'expense_categories':       EXPENSE_CATEGORIES,
+        'months_list':              months_list,
+        'years_list':               years_list,
+        'chart_labels_json':        json.dumps(chart_labels),
+        'chart_data_json':          json.dumps(chart_data),
+        'chart_colors_json':        json.dumps(_INSIGHTS_COLORS[:len(chart_data)]),
+        'top_category':             category_summary[0] if category_summary else None,
+    }
+    return render(request, 'core/expense_insights.html', context)
 
 
 # ===========================================================================
@@ -993,6 +1110,154 @@ def delete_receivable_view(request, pk):
         messages.success(request, f'Receivable of ৳{amount} from {debtor} deleted.')
         return redirect('receivables')
     return render(request, 'core/delete_receivable_confirm.html', {'receivable': receivable})
+
+
+# ===========================================================================
+# Payment Reminders
+# ===========================================================================
+
+_CATEGORY_TO_EXPENSE = {
+    'rent': 'rent', 'electricity': 'utilities', 'internet': 'utilities',
+    'gas': 'utilities', 'water': 'utilities', 'subscription': 'subscriptions',
+    'insurance': 'insurance', 'loan_payment': 'other', 'personal': 'other', 'other': 'other',
+}
+
+
+@login_required
+def reminders_view(request):
+    from .scheduler import generate_reminder_entries
+    generate_reminder_entries()
+
+    all_reminders = PaymentReminder.objects.filter(user=request.user).prefetch_related('entries')
+    filter_status = request.GET.get('filter', 'all')
+    today_date = date.today()
+
+    entries_qs = ReminderEntry.objects.filter(user=request.user).select_related('reminder').order_by('due_date')
+    if filter_status == 'pending':
+        entries_qs = entries_qs.filter(status=ReminderEntry.STATUS_PENDING)
+    elif filter_status == 'paid':
+        entries_qs = entries_qs.filter(status=ReminderEntry.STATUS_PAID)
+    elif filter_status == 'overdue':
+        entries_qs = entries_qs.filter(status=ReminderEntry.STATUS_PENDING, due_date__lt=today_date)
+
+    total_paid_amount = ReminderEntry.objects.filter(
+        user=request.user, status=ReminderEntry.STATUS_PAID
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    total_pending_amount = ReminderEntry.objects.filter(
+        user=request.user, status=ReminderEntry.STATUS_PENDING
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    overdue_count = ReminderEntry.objects.filter(
+        user=request.user, status=ReminderEntry.STATUS_PENDING, due_date__lt=today_date
+    ).count()
+
+    context = {
+        'reminders': all_reminders,
+        'entries': entries_qs,
+        'filter_status': filter_status,
+        'total_paid_amount': total_paid_amount,
+        'total_pending_amount': total_pending_amount,
+        'overdue_count': overdue_count,
+        'today': today_date,
+    }
+    return render(request, 'core/reminders.html', context)
+
+
+@login_required
+def add_reminder_view(request):
+    if request.method == 'POST':
+        form = PaymentReminderForm(request.POST)
+        if form.is_valid():
+            reminder = form.save(commit=False)
+            reminder.user = request.user
+            reminder.save()
+            from .scheduler import generate_reminder_entries
+            generate_reminder_entries()
+            messages.success(request, f'Reminder "{reminder.title}" added! Entries generated automatically.')
+            return redirect('reminders')
+        else:
+            messages.error(request, 'Please fix the errors below.')
+    else:
+        form = PaymentReminderForm(initial={'due_date': date.today()})
+    return render(request, 'core/add_reminder.html', {'form': form})
+
+
+@login_required
+def edit_reminder_view(request, pk):
+    reminder = get_object_or_404(PaymentReminder, pk=pk, user=request.user)
+    if request.method == 'POST':
+        form = PaymentReminderForm(request.POST, instance=reminder)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Reminder "{reminder.title}" updated.')
+            return redirect('reminders')
+    else:
+        form = PaymentReminderForm(instance=reminder)
+    return render(request, 'core/edit_reminder.html', {'form': form, 'reminder': reminder})
+
+
+@login_required
+def delete_reminder_view(request, pk):
+    reminder = get_object_or_404(PaymentReminder, pk=pk, user=request.user)
+    if request.method == 'POST':
+        title = reminder.title
+        reminder.delete()
+        messages.success(request, f'Reminder "{title}" and all its entries deleted.')
+        return redirect('reminders')
+    return render(request, 'core/delete_reminder_confirm.html', {'reminder': reminder})
+
+
+@login_required
+def mark_reminder_paid_view(request, pk):
+    entry = get_object_or_404(ReminderEntry, pk=pk, user=request.user)
+    if request.method == 'POST':
+        if entry.status == ReminderEntry.STATUS_PAID:
+            messages.warning(request, 'This entry is already marked as paid.')
+            return redirect('reminders')
+
+        payment_date_str = request.POST.get('payment_date', '')
+        try:
+            from datetime import datetime
+            payment_date = datetime.strptime(payment_date_str, '%Y-%m-%d').date() if payment_date_str else date.today()
+        except ValueError:
+            payment_date = date.today()
+
+        expense_category = _CATEGORY_TO_EXPENSE.get(entry.reminder.category, 'other')
+        amount = entry.amount or entry.reminder.amount or Decimal('0.00')
+
+        tx = Transaction.objects.create(
+            user=request.user,
+            type='expense',
+            category=expense_category,
+            amount=amount,
+            date=payment_date,
+            note=f'{entry.reminder.title} — due {entry.due_date}',
+        )
+        entry.status       = ReminderEntry.STATUS_PAID
+        entry.payment_date = payment_date
+        entry.transaction  = tx
+        entry.save(update_fields=['status', 'payment_date', 'transaction', 'updated_at'])
+
+        messages.success(request, f'"{entry.reminder.title}" marked as paid. Expense recorded automatically.')
+        return redirect('reminders')
+
+    return render(request, 'core/mark_reminder_paid.html', {'entry': entry, 'today': date.today()})
+
+
+@login_required
+def unmark_reminder_paid_view(request, pk):
+    entry = get_object_or_404(ReminderEntry, pk=pk, user=request.user)
+    if request.method == 'POST':
+        if entry.transaction:
+            entry.transaction.delete()
+        entry.status       = ReminderEntry.STATUS_PENDING
+        entry.payment_date = None
+        entry.transaction  = None
+        entry.save(update_fields=['status', 'payment_date', 'transaction', 'updated_at'])
+        messages.success(request, f'"{entry.reminder.title}" marked as unpaid.')
+        return redirect('reminders')
+    return render(request, 'core/unmark_reminder_paid.html', {'entry': entry})
 
 
 # ---------------------------------------------------------------------------

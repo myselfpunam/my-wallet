@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load static %}
 {% block title %}Login{% endblock %}
 
 {% block content %}
@@ -6,11 +7,13 @@
     <div class="w-full max-w-md fade-up">
         <!-- Header -->
         <div class="text-center mb-8">
-            <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 mb-4 shadow-2xl shadow-indigo-500/30">
-                <span class="text-white font-bold text-2xl">F</span>
+            <div class="flex justify-center mb-4">
+                <div class="bg-white rounded-2xl p-2 shadow-2xl shadow-indigo-500/20">
+                    <img src="{% static 'core/logo.png' %}" alt="My Wallet" class="h-24 w-auto object-contain">
+                </div>
             </div>
-            <h1 class="text-3xl font-bold text-white mb-1">Welcome back</h1>
-            <p class="text-slate-400">Sign in to your My Wallet account</p>
+            <h1 class="text-3xl font-bold text-white mb-1">My Wallet</h1>
+            <p class="text-slate-400">Sign in to your account</p>
         </div>
 
         <!-- Form Card -->

@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'crispy_forms',
     'crispy_tailwind',
+    'django_apscheduler',
     'core',
 ]
 

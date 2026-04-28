@@ -21,6 +21,7 @@ urlpatterns = [
     path('transactions/edit/<int:pk>/', views.edit_transaction_view, name='edit_transaction'),
     path('transactions/delete/<int:pk>/', views.delete_transaction_view, name='delete_transaction'),
     path('analytics/', views.analytics_view, name='analytics'),
+    path('expense-insights/', views.expense_insights_view, name='expense_insights'),
     path('loans/', views.loans_view, name='loans'),
     path('add-loan/', views.add_loan_view, name='add_loan'),
     path('loan-payment/', views.loan_payment_view, name='loan_payment'),
@@ -31,6 +32,14 @@ urlpatterns = [
     path('receivable-payment/', views.receivable_payment_view, name='receivable_payment'),
     path('receivables/edit/<int:pk>/', views.edit_receivable_view, name='edit_receivable'),
     path('receivables/delete/<int:pk>/', views.delete_receivable_view, name='delete_receivable'),
+
+    # Payment Reminders
+    path('reminders/', views.reminders_view, name='reminders'),
+    path('reminders/add/', views.add_reminder_view, name='add_reminder'),
+    path('reminders/edit/<int:pk>/', views.edit_reminder_view, name='edit_reminder'),
+    path('reminders/delete/<int:pk>/', views.delete_reminder_view, name='delete_reminder'),
+    path('reminders/entry/<int:pk>/pay/', views.mark_reminder_paid_view, name='mark_reminder_paid'),
+    path('reminders/entry/<int:pk>/unpay/', views.unmark_reminder_paid_view, name='unmark_reminder_paid'),
 
     # Profile management routes
     path('profile/', views.profile_view, name='profile'),

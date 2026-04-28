@@ -3,7 +3,7 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.models import User
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
-from .models import Transaction, INCOME_SOURCES, EXPENSE_CATEGORIES, Loan, LoanPayment, Receivable, ReceivablePayment, UserProfile
+from .models import Transaction, INCOME_SOURCES, EXPENSE_CATEGORIES, Loan, LoanPayment, Receivable, ReceivablePayment, PaymentReminder, UserProfile
 
 
 class SignUpForm(UserCreationForm):
@@ -102,9 +102,20 @@ class IncomeForm(forms.ModelForm):
 
 
 class ExpenseForm(forms.ModelForm):
+    title = forms.CharField(
+        max_length=100,
+        required=True,
+        label='Title',
+        widget=forms.TextInput(attrs={'placeholder': 'e.g. Monthly groceries, London trip...'}),
+    )
+    category = forms.ChoiceField(
+        choices=[('', '— Select category —')] + list(EXPENSE_CATEGORIES),
+        label='Category',
+    )
+
     class Meta:
         model = Transaction
-        fields = ['amount', 'category', 'date', 'note']
+        fields = ['title', 'amount', 'category', 'date', 'note']
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'note': forms.Textarea(attrs={'rows': 3}),
@@ -112,7 +123,6 @@ class ExpenseForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['category'].choices = EXPENSE_CATEGORIES
         input_class = (
             'w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl '
             'text-white placeholder-slate-400 focus:outline-none focus:ring-2 '
@@ -120,6 +130,7 @@ class ExpenseForm(forms.ModelForm):
         )
         for field_name, field in self.fields.items():
             field.widget.attrs['class'] = input_class
+        self.fields['category'].widget.attrs['class'] += ' cursor-pointer'
         self.fields['note'].widget.attrs['placeholder'] = 'Optional note...'
         self.fields['amount'].widget.attrs['placeholder'] = '0.00'
 
@@ -233,6 +244,40 @@ class ReceivablePaymentForm(forms.ModelForm):
         self.fields['amount'].widget.attrs['placeholder'] = '0.00 (৳)'
         self.fields['note'].widget.attrs['placeholder'] = 'Optional note...'
         self.fields['date'].widget.attrs['class'] += ' cursor-pointer'
+
+
+class PaymentReminderForm(forms.ModelForm):
+    class Meta:
+        model = PaymentReminder
+        fields = ['title', 'category', 'amount', 'description', 'due_date', 'frequency', 'remind_days_before']
+        widgets = {
+            'due_date': forms.DateInput(attrs={'type': 'date'}),
+            'description': forms.Textarea(attrs={'rows': 2}),
+            'remind_days_before': forms.Select(choices=[
+                (1, '1 day before'),
+                (2, '2 days before'),
+                (3, '3 days before'),
+                (5, '5 days before'),
+                (7, '7 days before'),
+            ]),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        input_class = (
+            'w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl '
+            'text-white placeholder-slate-400 focus:outline-none focus:ring-2 '
+            'focus:ring-violet-500 focus:border-transparent transition-all duration-200'
+        )
+        for field_name, field in self.fields.items():
+            field.widget.attrs['class'] = input_class
+        self.fields['title'].widget.attrs['placeholder'] = 'e.g. House Rent, Netflix, Electricity'
+        self.fields['amount'].widget.attrs['placeholder'] = '0.00 (£) — optional'
+        self.fields['description'].widget.attrs['placeholder'] = 'Optional notes...'
+        self.fields['due_date'].widget.attrs['class'] += ' cursor-pointer'
+        self.fields['frequency'].widget.attrs['class'] += ' cursor-pointer'
+        self.fields['category'].widget.attrs['class'] += ' cursor-pointer'
+        self.fields['remind_days_before'].widget.attrs['class'] += ' cursor-pointer'
 
 
 class ForgotPasswordForm(forms.Form):

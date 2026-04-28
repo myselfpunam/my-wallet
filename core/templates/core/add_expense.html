@@ -16,6 +16,12 @@
             {% csrf_token %}
 
             <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Title</label>
+                {{ form.title }}
+                {% if form.title.errors %}<p class="text-red-400 text-xs mt-1">{{ form.title.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div>
                 <label class="block text-slate-300 text-sm font-medium mb-2">Amount (£)</label>
                 {{ form.amount }}
                 {% if form.amount.errors %}<p class="text-red-400 text-xs mt-1">{{ form.amount.errors.0 }}</p>{% endif %}

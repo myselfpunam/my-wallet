@@ -1,0 +1,318 @@
+{% extends 'core/base.html' %}
+{% block title %}Expense Insights{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 fade-up">
+    <div>
+        <h1 class="text-2xl font-bold text-white">Expense Insights</h1>
+        <p class="text-slate-400 text-sm mt-1">
+            Understand your spending habits by category
+            {% if selected_category_name %} — <span class="text-orange-400 font-medium">{{ selected_category_name }}</span>{% endif %}
+        </p>
+    </div>
+    <a href="{% url 'add_expense' %}" class="btn-primary btn-red text-sm py-2.5 px-5">+ Add Expense</a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-6 fade-up">
+    <form method="get" id="filter-form" class="flex flex-wrap items-end gap-4">
+        <!-- Year -->
+        <div class="flex flex-col gap-1.5">
+            <label class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Year</label>
+            <select name="year" onchange="document.getElementById('filter-form').submit()"
+                class="bg-slate-800 border border-slate-600 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer min-w-[100px]">
+                {% for y in years_list %}
+                <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Month -->
+        <div class="flex flex-col gap-1.5">
+            <label class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Month</label>
+            <select name="month" onchange="document.getElementById('filter-form').submit()"
+                class="bg-slate-800 border border-slate-600 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer min-w-[140px]">
+                <option value="">All Months</option>
+                {% for m in months_list %}
+                <option value="{{ m.value }}" {% if m.value|stringformat:"s" == selected_month %}selected{% endif %}>{{ m.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Category -->
+        <div class="flex flex-col gap-1.5">
+            <label class="text-slate-400 text-xs font-semibold uppercase tracking-wider">Category</label>
+            <select name="category" onchange="document.getElementById('filter-form').submit()"
+                class="bg-slate-800 border border-slate-600 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500 cursor-pointer min-w-[180px]">
+                <option value="">All Categories</option>
+                {% for key, label in expense_categories %}
+                <option value="{{ key }}" {% if key == selected_category %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Clear -->
+        {% if selected_month or selected_category %}
+        <a href="{% url 'expense_insights' %}?year={{ selected_year }}"
+           class="text-sm text-slate-400 hover:text-white border border-slate-600 rounded-xl px-4 py-2.5 transition-colors">
+            Clear Filters
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Summary Cards Row -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 fade-up">
+    <!-- Total Expense -->
+    <div class="card card-hover stat-card-expense">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-slate-400 text-sm font-medium mb-2">Total Expenses</p>
+                <p class="text-3xl font-bold text-red-400 font-mono">£{{ total_expense|floatformat:2 }}</p>
+                <p class="text-slate-500 text-xs mt-2">
+                    {{ selected_month_name }}{% if selected_month %}, {% endif %}{{ selected_year }}
+                </p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-red-500/15 flex items-center justify-center text-2xl flex-shrink-0">💸</div>
+        </div>
+    </div>
+
+    <!-- Top Category -->
+    {% if top_category %}
+    <div class="card card-hover" style="background:linear-gradient(135deg,rgba(249,115,22,0.12),rgba(234,88,12,0.08));border-color:rgba(249,115,22,0.2);">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-slate-400 text-sm font-medium mb-2">Top Spending</p>
+                <p class="text-xl font-bold text-orange-400">{{ top_category.name }}</p>
+                <p class="text-orange-300 font-mono font-semibold mt-1">£{{ top_category.total|floatformat:2 }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-orange-500/15 flex items-center justify-center text-2xl flex-shrink-0">{{ top_category.icon }}</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Categories Count -->
+    <div class="card card-hover" style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(79,70,229,0.08));border-color:rgba(99,102,241,0.2);">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-slate-400 text-sm font-medium mb-2">Categories Used</p>
+                <p class="text-3xl font-bold text-indigo-400 font-mono">{{ category_summary|length }}</p>
+                <p class="text-slate-500 text-xs mt-2">Across this period</p>
+            </div>
+            <div class="w-12 h-12 rounded-2xl bg-indigo-500/15 flex items-center justify-center text-2xl flex-shrink-0">📂</div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart + Category Summary -->
+<div class="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
+
+    <!-- Pie Chart -->
+    <div class="card fade-up lg:col-span-2">
+        <h2 class="text-white font-semibold mb-1">Spending Distribution</h2>
+        <p class="text-slate-500 text-xs mb-5">By category — {{ selected_month_name }} {{ selected_year }}</p>
+        {% if category_summary %}
+        <div class="flex items-center justify-center" style="height:260px;">
+            <canvas id="categoryPieChart"></canvas>
+        </div>
+        <div class="mt-4 space-y-1 max-h-40 overflow-y-auto scrollbar-thin">
+            {% for cat in category_summary %}
+            <div class="flex items-center gap-2 text-xs px-1">
+                <div class="w-2.5 h-2.5 rounded-full flex-shrink-0" style="background: var(--cat-color-{{ forloop.counter0 }})"></div>
+                <span class="text-slate-400 truncate flex-1">{{ cat.name }}</span>
+                <span class="text-slate-300 font-mono font-medium">£{{ cat.total|floatformat:2 }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="flex flex-col items-center justify-center py-14 text-center">
+            <div class="text-5xl mb-3 opacity-30">📊</div>
+            <p class="text-slate-500 text-sm">No expense data for this period</p>
+            <a href="{% url 'add_expense' %}" class="mt-4 text-xs text-red-400 hover:underline">Add an expense →</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Category Summary Table -->
+    <div class="card fade-up lg:col-span-3">
+        <div class="flex items-center justify-between mb-5">
+            <div>
+                <h2 class="text-white font-semibold">Category Breakdown</h2>
+                <p class="text-slate-500 text-xs mt-0.5">Click a category to view its transactions</p>
+            </div>
+            {% if selected_category %}
+            <a href="{% url 'expense_insights' %}?year={{ selected_year }}{% if selected_month %}&month={{ selected_month }}{% endif %}"
+               class="text-xs text-slate-400 hover:text-white border border-slate-600 rounded-lg px-3 py-1.5 transition-colors">
+                Show All
+            </a>
+            {% endif %}
+        </div>
+
+        {% if category_summary %}
+        <div class="space-y-2">
+            {% for cat in category_summary %}
+            {% with pct=cat.total|floatformat:2 %}
+            <a href="{% url 'expense_insights' %}?year={{ selected_year }}{% if selected_month %}&month={{ selected_month }}{% endif %}&category={{ cat.key }}"
+               class="flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group
+                      {% if cat.key == selected_category %}bg-orange-500/10 border border-orange-500/20{% else %}hover:bg-white/3 border border-transparent{% endif %}">
+                <div class="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0
+                    {% if cat.key == selected_category %}bg-orange-500/20{% else %}bg-white/5{% endif %}">
+                    {{ cat.icon }}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <span class="text-sm font-medium {% if cat.key == selected_category %}text-orange-300{% else %}text-slate-200 group-hover:text-white{% endif %}">
+                            {{ cat.name }}
+                        </span>
+                        <span class="text-sm font-mono font-semibold text-red-400 flex-shrink-0">
+                            £{{ cat.total|floatformat:2 }}
+                        </span>
+                    </div>
+                    <!-- Progress bar -->
+                    <div class="w-full bg-slate-700/50 rounded-full h-1.5">
+                        {% if total_expense %}
+                        <div class="h-1.5 rounded-full {% if cat.key == selected_category %}bg-orange-400{% else %}bg-red-500{% endif %} transition-all duration-500"
+                             style="width: {% widthratio cat.total total_expense 100 %}%"></div>
+                        {% endif %}
+                    </div>
+                    <p class="text-slate-500 text-xs mt-1">{{ cat.count }} transaction{{ cat.count|pluralize }}</p>
+                </div>
+            </a>
+            {% endwith %}
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="text-5xl mb-3 opacity-20">🗂️</div>
+            <p class="text-slate-500 text-sm">No expenses found for this period</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Transaction Detail -->
+<div class="card fade-up">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-5">
+        <div>
+            <h2 class="text-white font-semibold">
+                {% if selected_category_name %}
+                    {{ selected_category_name }} Transactions
+                {% else %}
+                    All Expense Transactions
+                {% endif %}
+            </h2>
+            <p class="text-slate-500 text-xs mt-0.5">
+                {% if selected_category_name %}
+                    Total: <span class="text-red-400 font-mono font-medium">£{{ selected_category_total|floatformat:2 }}</span> ·
+                {% endif %}
+                {{ transactions|length }} record{{ transactions|length|pluralize }}
+            </p>
+        </div>
+        {% if selected_category %}
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-sm font-medium">
+            {{ selected_category_name }}
+            <a href="{% url 'expense_insights' %}?year={{ selected_year }}{% if selected_month %}&month={{ selected_month }}{% endif %}"
+               class="text-orange-500 hover:text-orange-300 ml-1 leading-none">✕</a>
+        </span>
+        {% endif %}
+    </div>
+
+    {% if transactions %}
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="text-slate-500 text-xs uppercase tracking-wider border-b border-white/5">
+                    <th class="text-left pb-3 px-3">Date</th>
+                    <th class="text-left pb-3 px-3">Category</th>
+                    <th class="text-left pb-3 px-3 hidden sm:table-cell">Note</th>
+                    <th class="text-right pb-3 px-3">Amount</th>
+                    <th class="pb-3 px-3 hidden md:table-cell"></th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/3">
+                {% for tx in transactions %}
+                <tr class="table-row transition-colors">
+                    <td class="py-3 px-3 text-slate-400 whitespace-nowrap">{{ tx.date|date:"d M Y" }}</td>
+                    <td class="py-3 px-3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-base leading-none">{{ tx.get_category_icon }}</span>
+                            <span class="text-slate-200 font-medium">{{ tx.get_category_display_name }}</span>
+                        </div>
+                    </td>
+                    <td class="py-3 px-3 text-slate-500 hidden sm:table-cell max-w-[200px] truncate">
+                        {{ tx.note|default:"—" }}
+                    </td>
+                    <td class="py-3 px-3 text-right font-mono font-semibold text-red-400 whitespace-nowrap">
+                        -£{{ tx.amount|floatformat:2 }}
+                    </td>
+                    <td class="py-3 px-3 text-right hidden md:table-cell">
+                        <a href="{% url 'edit_transaction' tx.pk %}"
+                           class="text-xs text-slate-500 hover:text-indigo-400 transition-colors px-2 py-1 rounded">Edit</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-center py-12">
+        <div class="text-5xl mb-3 opacity-20">🗂️</div>
+        <p class="text-slate-500 mb-4">No transactions found for the selected filters</p>
+        <a href="{% url 'add_expense' %}" class="btn-primary btn-red text-sm py-2 px-4">+ Add Expense</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const catLabels = {{ chart_labels_json|safe }};
+const catData   = {{ chart_data_json|safe }};
+const catColors = {{ chart_colors_json|safe }};
+
+// Inject CSS variables for legend dots
+catColors.forEach(function(color, i) {
+    document.documentElement.style.setProperty('--cat-color-' + i, color);
+});
+
+{% if category_summary %}
+const pieCtx = document.getElementById('categoryPieChart').getContext('2d');
+new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+        labels: catLabels,
+        datasets: [{
+            data: catData,
+            backgroundColor: catColors.map(c => c + 'cc'),
+            borderColor: catColors,
+            borderWidth: 2,
+            hoverOffset: 8,
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '62%',
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: '#1e2535',
+                borderColor: 'rgba(255,255,255,0.1)',
+                borderWidth: 1,
+                padding: 12,
+                callbacks: {
+                    label: function(ctx) {
+                        const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                        const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
+                        return ` £${ctx.parsed.toFixed(2)} (${pct}%)`;
+                    }
+                }
+            }
+        },
+        animation: { animateRotate: true, duration: 900 }
+    }
+});
+{% endif %}
+</script>
+{% endblock %}

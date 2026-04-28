@@ -1,9 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}My Wallet{% endblock %} — Personal Finance</title>
+    <link rel="icon" type="image/png" href="{% static 'core/logo.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'core/logo.png' %}">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -112,14 +115,8 @@
 <!-- SIDEBAR -->
 {% if user.is_authenticated %}
 <div id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-[#0d1117] border-r border-white/5 flex flex-col z-50">
-    <div class="px-6 py-6 border-b border-white/5">
-        <div class="flex items-center gap-3">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg shadow-lg">F</div>
-            <div>
-                <div class="text-white font-bold text-lg leading-none">My Wallet</div>
-                <div class="text-slate-500 text-xs mt-0.5">Finance Manager</div>
-            </div>
-        </div>
+    <div class="px-4 py-5 border-b border-white/5 flex justify-center">
+        <img src="{% static 'core/logo.png' %}" alt="My Wallet" class="h-24 w-auto object-contain rounded-2xl">
     </div>
 
     <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
@@ -139,6 +136,9 @@
         <a href="{% url 'analytics' %}" class="sidebar-link {% if request.resolver_match.url_name == 'analytics' %}active{% endif %}">
             <span class="icon">📊</span> Analytics
         </a>
+        <a href="{% url 'expense_insights' %}" class="sidebar-link {% if request.resolver_match.url_name == 'expense_insights' %}active{% endif %}">
+            <span class="icon">🔍</span> Expense Insights
+        </a>
         <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider px-3 mb-3 mt-5">Loans</div>
         <a href="{% url 'loans' %}" class="sidebar-link {% if request.resolver_match.url_name == 'loans' %}active{% endif %}">
             <span class="icon">💳</span> Loan Overview
@@ -148,6 +148,13 @@
         </a>
         <a href="{% url 'loan_payment' %}" class="sidebar-link {% if request.resolver_match.url_name == 'loan_payment' %}active{% endif %}">
             <span class="icon">💸</span> Loan Payment
+        </a>
+        <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider px-3 mb-3 mt-5">Reminders</div>
+        <a href="{% url 'reminders' %}" class="sidebar-link {% if request.resolver_match.url_name == 'reminders' %}active{% endif %}">
+            <span class="icon">🔔</span> Payment Reminders
+        </a>
+        <a href="{% url 'add_reminder' %}" class="sidebar-link {% if request.resolver_match.url_name == 'add_reminder' %}active{% endif %}">
+            <span class="icon">➕</span> Add Reminder
         </a>
         <div class="text-slate-600 text-xs font-semibold uppercase tracking-wider px-3 mb-3 mt-5">Receivables</div>
         <a href="{% url 'receivables' %}" class="sidebar-link {% if request.resolver_match.url_name == 'receivables' %}active{% endif %}">
@@ -196,7 +203,9 @@
             </svg>
         </button>
         <div class="flex items-center gap-2">
-            <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm">M</div>
+            <div class="w-8 h-8 bg-white rounded-lg p-0.5 flex-shrink-0 overflow-hidden">
+                <img src="{% static 'core/logo.png' %}" alt="My Wallet" class="w-full h-full object-contain">
+            </div>
             <span class="text-white font-bold">My Wallet</span>
         </div>
         <a href="{% url 'profile' %}" class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden border border-white/10">

@@ -46,6 +46,87 @@ def send_verification_email(user, raw_otp: str) -> bool:
     )
 
 
+def send_payment_reminder_email(entry) -> bool:
+    """
+    Send a payment reminder email for *entry* (a ReminderEntry instance).
+    Returns True on success, False on any failure.
+    """
+    from datetime import date
+
+    user = entry.user
+    today = date.today()
+    days_until = (entry.due_date - today).days
+
+    if days_until < 0:
+        reminder_type = 'overdue'
+    elif days_until == 0:
+        reminder_type = 'due_today'
+    else:
+        reminder_type = 'upcoming'
+
+    title = entry.reminder.title
+    abs_days = abs(days_until)
+
+    subject_map = {
+        'upcoming':  f"Payment Reminder: {title} — due in {days_until} day{'s' if days_until != 1 else ''}",
+        'due_today': f"Payment Due Today: {title} — My Wallet",
+        'overdue':   f"Overdue Payment: {title} — {abs_days} day{'s' if abs_days != 1 else ''} overdue",
+    }
+
+    context = {
+        'display_name':  user.first_name or user.username,
+        'title':         title,
+        'icon':          entry.reminder.get_icon(),
+        'amount':        entry.amount or entry.reminder.amount,
+        'due_date':      entry.due_date,
+        'days_until':    days_until,
+        'reminder_type': reminder_type,
+        'app_name':      'My Wallet',
+    }
+
+    try:
+        html_body  = render_to_string('core/emails/payment_reminder.html', context)
+        plain_body = _build_payment_plain_text(context)
+        send_mail(
+            subject=subject_map[reminder_type],
+            message=plain_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_body,
+            fail_silently=False,
+        )
+        logger.info("Payment reminder [%s] sent to %s for %s", reminder_type, user.email, entry)
+        return True
+    except BadHeaderError:
+        logger.error("BadHeaderError sending payment reminder to %s", user.email)
+        return False
+    except Exception as exc:
+        logger.error("Failed to send payment reminder to %s: %s", user.email, exc)
+        return False
+
+
+def _build_payment_plain_text(ctx: dict) -> str:
+    days = ctx['days_until']
+    title = ctx['title']
+    if ctx['reminder_type'] == 'overdue':
+        timing = f'"{title}" is {abs(days)} day{"s" if abs(days) != 1 else ""} OVERDUE.'
+    elif ctx['reminder_type'] == 'due_today':
+        timing = f'"{title}" is due TODAY.'
+    else:
+        timing = f'"{title}" is due in {days} day{"s" if days != 1 else ""}.'
+
+    amount_line = f"  Amount   : £{ctx['amount']}\n" if ctx['amount'] else ''
+    return (
+        f"Hello {ctx['display_name']},\n\n"
+        f"{timing}\n\n"
+        f"  Payment  : {title}\n"
+        f"{amount_line}"
+        f"  Due Date : {ctx['due_date'].strftime('%d %B %Y')}\n\n"
+        f"Log in to My Wallet to mark this payment as done.\n\n"
+        f"— The My Wallet Team\n"
+    )
+
+
 def send_password_reset_email(user, raw_otp: str) -> bool:
     """
     Send a 6-digit password-reset OTP to *user*.

@@ -5,7 +5,7 @@ from django.db.models import Sum
 from django.utils.crypto import get_random_string
 from django.contrib.auth.hashers import make_password, check_password
 from decimal import Decimal
-from django.core.validators import FileExtensionValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 import os
@@ -24,19 +24,13 @@ INCOME_SOURCES = [
 ]
 
 EXPENSE_CATEGORIES = [
-    ('food', 'Food & Dining'),
-    ('transport', 'Transport'),
-    ('rent', 'Rent & Housing'),
-    ('shopping', 'Shopping'),
-    ('healthcare', 'Healthcare'),
-    ('entertainment', 'Entertainment'),
-    ('utilities', 'Utilities'),
-    ('education', 'Education'),
+    ('food', 'Food'),
     ('travel', 'Travel'),
-    ('subscriptions', 'Subscriptions'),
-    ('insurance', 'Insurance'),
-    ('savings', 'Savings'),
-    ('other', 'Other'),
+    ('rent', 'House Rent'),
+    ('personal', 'Personal'),
+    ('family_support', 'Family Support'),
+    ('lifestyle', 'Lifestyle'),
+    ('other', 'Others'),
 ]
 
 TRANSACTION_TYPES = [
@@ -183,6 +177,7 @@ class ReceivablePayment(models.Model):
 class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
     type = models.CharField(max_length=10, choices=TRANSACTION_TYPES)
+    title = models.CharField(max_length=100, blank=True, null=True)
     category = models.CharField(max_length=50)  # source for income, category for expense
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     date = models.DateField(default=timezone.now)
@@ -197,23 +192,144 @@ class Transaction(models.Model):
         return f"{self.type.title()} - {self.category} - £{self.amount} ({self.date})"
 
     def get_category_display_name(self):
-        all_choices = dict(INCOME_SOURCES + EXPENSE_CATEGORIES)
-        return all_choices.get(self.category, self.category.title())
+        _all = dict(INCOME_SOURCES)
+        _all.update({
+            'food': 'Food', 'travel': 'Travel', 'rent': 'House Rent',
+            'personal': 'Personal', 'family_support': 'Family Support',
+            'lifestyle': 'Lifestyle', 'other': 'Others',
+            # legacy keys
+            'tour': 'Tour', 'transport': 'Transport',
+            'shopping': 'Shopping', 'healthcare': 'Healthcare',
+            'entertainment': 'Entertainment', 'utilities': 'Utilities',
+            'education': 'Education', 'subscriptions': 'Subscriptions',
+            'insurance': 'Insurance', 'savings': 'Savings',
+        })
+        return _all.get(self.category, self.category.replace('_', ' ').title())
 
     def get_category_icon(self):
         icons = {
             # Income
             'salary': '💼', 'freelance': '💻', 'gift': '🎁',
             'investment': '📈', 'business': '🏢', 'rental': '🏠',
-            'bonus': '⭐', 'refund': '↩️', 
+            'bonus': '⭐', 'refund': '↩️',
             # Expense
-            'food': '🍽️', 'transport': '🚗', 'rent': '🏠',
+            'food': '🍽️', 'travel': '✈️', 'rent': '🏠',
+            'personal': '👤', 'family_support': '👨‍👩‍👧', 'other': '📋',
+            # legacy
+            'tour': '🗺️', 'lifestyle': '✨', 'transport': '🚗',
             'shopping': '🛍️', 'healthcare': '🏥', 'entertainment': '🎬',
-            'utilities': '⚡', 'education': '📚', 'travel': '✈️',
-            'subscriptions': '📱', 'insurance': '🛡️', 'savings': '🏦',
-            'other': '📋',
+            'utilities': '⚡', 'education': '📚', 'subscriptions': '📱',
+            'insurance': '🛡️', 'savings': '🏦',
         }
         return icons.get(self.category, '💰')
+
+
+class PaymentReminder(models.Model):
+    """
+    User-configured reminder for any recurring or one-time payment.
+    Works for rent, bills, subscriptions, personal payments, etc.
+    """
+    FREQ_ONE_TIME = 'one_time'
+    FREQ_MONTHLY  = 'monthly'
+    FREQUENCY_CHOICES = [
+        (FREQ_ONE_TIME, 'One-time'),
+        (FREQ_MONTHLY,  'Monthly (Recurring)'),
+    ]
+
+    CATEGORY_CHOICES = [
+        ('rent',         'House Rent'),
+        ('electricity',  'Electricity Bill'),
+        ('internet',     'Internet Bill'),
+        ('gas',          'Gas Bill'),
+        ('water',        'Water Bill'),
+        ('subscription', 'Subscription'),
+        ('insurance',    'Insurance'),
+        ('loan_payment', 'Loan Payment'),
+        ('personal',     'Personal Payment'),
+        ('other',        'Other'),
+    ]
+
+    CATEGORY_ICONS = {
+        'rent': '🏠', 'electricity': '⚡', 'internet': '🌐',
+        'gas': '🔥', 'water': '💧', 'subscription': '📱',
+        'insurance': '🛡️', 'loan_payment': '💳', 'personal': '👤', 'other': '📋',
+    }
+
+    user              = models.ForeignKey(User, on_delete=models.CASCADE, related_name='payment_reminders')
+    title             = models.CharField(max_length=200)
+    category          = models.CharField(max_length=30, choices=CATEGORY_CHOICES, default='other')
+    amount            = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    description       = models.TextField(blank=True, null=True)
+    due_date          = models.DateField(help_text='First (or only) due date for this payment')
+    frequency         = models.CharField(max_length=10, choices=FREQUENCY_CHOICES, default=FREQ_MONTHLY)
+    remind_days_before = models.PositiveSmallIntegerField(
+        default=3,
+        validators=[MinValueValidator(1), MaxValueValidator(7)],
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['due_date', 'title']
+
+    def __str__(self):
+        return f"{self.title} ({self.get_frequency_display()})"
+
+    def get_icon(self):
+        return self.CATEGORY_ICONS.get(self.category, '📋')
+
+    def get_amount_display(self):
+        return f"£{self.amount}" if self.amount else '—'
+
+
+class ReminderEntry(models.Model):
+    """
+    A single due-date instance generated from a PaymentReminder.
+    One-time reminders → one entry.  Monthly reminders → one per month.
+    """
+    STATUS_PENDING = 'pending'
+    STATUS_PAID    = 'paid'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_PAID,    'Paid'),
+    ]
+
+    user        = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reminder_entries')
+    reminder    = models.ForeignKey(PaymentReminder, on_delete=models.CASCADE, related_name='entries')
+    due_date    = models.DateField()
+    amount      = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    status      = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    payment_date     = models.DateField(blank=True, null=True)
+    transaction      = models.OneToOneField(
+        'Transaction', on_delete=models.SET_NULL,
+        blank=True, null=True, related_name='reminder_entry',
+    )
+    last_reminder_date = models.DateField(blank=True, null=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    updated_at  = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering  = ['due_date']
+        unique_together = [('reminder', 'due_date')]
+
+    def __str__(self):
+        return f"{self.reminder.title} — due {self.due_date} ({self.status})"
+
+    def is_overdue(self):
+        from datetime import date
+        return self.status == self.STATUS_PENDING and self.due_date < date.today()
+
+    def days_until_due(self):
+        from datetime import date
+        return (self.due_date - date.today()).days
+
+    def status_label(self):
+        if self.status == self.STATUS_PAID:
+            return 'paid'
+        if self.is_overdue():
+            return 'overdue'
+        return 'pending'
 
 
 class PasswordResetToken(models.Model):
@@ -317,3 +433,55 @@ class PasswordResetToken(models.Model):
             expires_at=expires_at,
         )
         return instance, raw_otp
+
+
+class RentSetup(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='rent_setups')
+    property_name = models.CharField(max_length=100, blank=True, null=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    due_day = models.PositiveSmallIntegerField(
+        help_text='Day of month rent is due (1–28)',
+        validators=[MinValueValidator(1), MaxValueValidator(28)],
+    )
+    start_date = models.DateField()
+    remind_days_before = models.PositiveSmallIntegerField(
+        default=3,
+        help_text='Send reminder this many days before due date',
+        validators=[MinValueValidator(1), MaxValueValidator(7)],
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        name = self.property_name or 'Rent'
+        return f"{name} (due day {self.due_day})"
+
+
+class RentEntry(models.Model):
+    STATUS_CHOICES = [('unpaid', 'Unpaid'), ('paid', 'Paid')]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='rent_entries')
+    rent_setup = models.ForeignKey(RentSetup, on_delete=models.CASCADE, related_name='entries')
+    month = models.PositiveSmallIntegerField()
+    year = models.PositiveIntegerField()
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    due_date = models.DateField()
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='unpaid')
+    payment_date = models.DateField(blank=True, null=True)
+    last_reminder_date = models.DateField(blank=True, null=True)
+    transaction = models.OneToOneField(
+        'Transaction', on_delete=models.SET_NULL, null=True, blank=True, related_name='rent_entry'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-year', '-month']
+        unique_together = [('rent_setup', 'month', 'year')]
+
+    def __str__(self):
+        return f"{self.rent_setup} — {self.month}/{self.year} ({self.status})"

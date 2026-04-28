@@ -1,0 +1,161 @@
+{% extends 'core/base.html' %}
+{% block title %}Rent Management{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 fade-up">
+    <div>
+        <h1 class="text-2xl font-bold text-white">House Rent</h1>
+        <p class="text-slate-400 text-sm mt-1">Manage recurring rent payments and track history</p>
+    </div>
+    <a href="{% url 'add_rent_setup' %}" class="btn-primary text-sm py-2 px-5" style="background:linear-gradient(135deg,#f97316,#c2410c);box-shadow:0 4px 15px rgba(249,115,22,0.3);">+ New Rent Setup</a>
+</div>
+
+<!-- Summary Strip -->
+<div class="grid grid-cols-3 gap-3 mb-5 fade-up fade-up-1">
+    <div class="card py-3 text-center">
+        <p class="text-slate-500 text-xs mb-1">Total Paid</p>
+        <p class="text-emerald-400 font-bold font-mono">৳{{ total_paid_amount|floatformat:2 }}</p>
+    </div>
+    <div class="card py-3 text-center">
+        <p class="text-slate-500 text-xs mb-1">Pending</p>
+        <p class="text-amber-400 font-bold font-mono">৳{{ total_pending_amount|floatformat:2 }}</p>
+    </div>
+    <div class="card py-3 text-center">
+        <p class="text-slate-500 text-xs mb-1">Overdue Entries</p>
+        <p class="{% if overdue_count > 0 %}text-red-400{% else %}text-slate-400{% endif %} font-bold font-mono">{{ overdue_count }}</p>
+    </div>
+</div>
+
+{% if overdue_count > 0 %}
+<!-- Overdue alert -->
+<div class="mb-5 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-400 text-sm flex items-center gap-3 fade-up fade-up-1">
+    <span class="text-lg">🚨</span>
+    <span>You have <strong>{{ overdue_count }} overdue rent {{ overdue_count|pluralize:"payment,payments" }}</strong>. Mark them paid to stop reminder emails.</span>
+</div>
+{% endif %}
+
+<!-- Active Setups -->
+{% if setups %}
+<div class="mb-5 fade-up fade-up-2">
+    <h2 class="text-white font-semibold mb-3">Active Setups</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for setup in setups %}
+        <div class="card card-hover {% if setup.is_active %}border-orange-500/20{% else %}border-white/5 opacity-60{% endif %}">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-white font-semibold">{{ setup.get_display_name }}</p>
+                    <p class="text-slate-500 text-xs mt-0.5">Due on the {{ setup.due_day }}{% if setup.due_day == 1 %}st{% elif setup.due_day == 2 %}nd{% elif setup.due_day == 3 %}rd{% else %}th{% endif %} each month</p>
+                </div>
+                <span class="{% if setup.is_active %}bg-emerald-500/15 text-emerald-400{% else %}bg-slate-500/15 text-slate-400{% endif %} text-xs px-2 py-1 rounded-lg font-medium">
+                    {% if setup.is_active %}Active{% else %}Paused{% endif %}
+                </span>
+            </div>
+            <p class="text-orange-400 text-2xl font-bold font-mono mb-1">৳{{ setup.amount|floatformat:2 }}</p>
+            <p class="text-slate-500 text-xs mb-4">Reminder {{ setup.remind_days_before }} day{{ setup.remind_days_before|pluralize }} before due · from {{ setup.start_date|date:"d M Y" }}</p>
+            <div class="flex items-center gap-2 flex-wrap">
+                <a href="{% url 'edit_rent_setup' setup.pk %}" class="text-xs text-orange-400 hover:text-orange-300 bg-orange-500/10 hover:bg-orange-500/20 px-3 py-1.5 rounded-lg transition-all">Edit</a>
+                <a href="{% url 'toggle_rent_setup' setup.pk %}" class="text-xs {% if setup.is_active %}text-amber-400 bg-amber-500/10 hover:bg-amber-500/20{% else %}text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20{% endif %} px-3 py-1.5 rounded-lg transition-all">
+                    {% if setup.is_active %}Pause{% else %}Activate{% endif %}
+                </a>
+                <a href="{% url 'delete_rent_setup' setup.pk %}" class="text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 px-3 py-1.5 rounded-lg transition-all">Delete</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Filter -->
+<div class="card mb-5 fade-up fade-up-2">
+    <form method="get" class="flex flex-wrap items-center gap-3">
+        <select name="filter" class="bg-slate-800 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-orange-500">
+            <option value="all"     {% if filter_status == 'all'     %}selected{% endif %}>All Entries</option>
+            <option value="unpaid"  {% if filter_status == 'unpaid'  %}selected{% endif %}>Unpaid</option>
+            <option value="paid"    {% if filter_status == 'paid'    %}selected{% endif %}>Paid</option>
+            <option value="overdue" {% if filter_status == 'overdue' %}selected{% endif %}>Overdue</option>
+        </select>
+        <button type="submit" class="btn-primary text-sm py-2.5 px-5">Apply</button>
+    </form>
+</div>
+
+<!-- Entries Table -->
+<div class="card fade-up fade-up-3">
+    {% if entries %}
+    <div class="overflow-x-auto -mx-6 -mb-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-white/5">
+                    <th class="text-left text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Period</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden sm:table-cell">Property</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Amount</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Due Date</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden md:table-cell">Paid On</th>
+                    <th class="text-right text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Status</th>
+                    <th class="text-right text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Action</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/3">
+                {% for entry in entries %}
+                <tr class="table-row transition-colors group">
+                    <td class="px-6 py-4">
+                        <p class="text-slate-300 font-medium">{{ entry.month_label }}</p>
+                    </td>
+                    <td class="px-4 py-4 hidden sm:table-cell">
+                        <p class="text-slate-400 text-xs">{{ entry.rent_setup.get_display_name }}</p>
+                    </td>
+                    <td class="px-4 py-4">
+                        <span class="text-orange-400 font-mono">৳{{ entry.amount|floatformat:2 }}</span>
+                    </td>
+                    <td class="px-4 py-4">
+                        <span class="{% if entry.is_overdue %}text-red-400{% else %}text-slate-400{% endif %}">{{ entry.due_date|date:"d M Y" }}</span>
+                    </td>
+                    <td class="px-4 py-4 hidden md:table-cell">
+                        <span class="text-slate-500 text-xs">{{ entry.payment_date|date:"d M Y"|default:"—" }}</span>
+                    </td>
+                    <td class="px-4 py-4 text-right">
+                        {% if entry.status == 'paid' %}
+                        <span class="badge-income text-xs">Paid</span>
+                        {% elif entry.is_overdue %}
+                        <span class="bg-red-500/15 text-red-400 rounded-md px-2.5 py-1 text-xs font-semibold">Overdue</span>
+                        {% else %}
+                        <span class="badge-expense text-xs">Unpaid</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 text-right">
+                        <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {% if entry.status == 'unpaid' %}
+                            <a href="{% url 'mark_rent_paid' entry.pk %}"
+                               class="text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-2.5 py-1.5 rounded-lg transition-all">
+                               Mark Paid
+                            </a>
+                            {% else %}
+                            <a href="{% url 'unmark_rent_paid' entry.pk %}"
+                               class="text-xs text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1.5 rounded-lg transition-all">
+                               Undo
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="pt-4 border-t border-white/5 mt-4">
+        <p class="text-slate-600 text-xs">{{ entries|length }} entr{{ entries|length|pluralize:"y,ies" }}</p>
+    </div>
+    {% else %}
+    <div class="text-center py-16">
+        <div class="text-6xl mb-4 opacity-20">🏠</div>
+        <h3 class="text-slate-400 font-medium mb-2">No rent entries found</h3>
+        <p class="text-slate-600 text-sm mb-6">
+            {% if not setups %}Add a rent setup first to start tracking.{% else %}Try a different filter.{% endif %}
+        </p>
+        {% if not setups %}
+        <a href="{% url 'add_rent_setup' %}" class="btn-primary text-sm py-2 px-5" style="background:linear-gradient(135deg,#f97316,#c2410c);box-shadow:0 4px 15px rgba(249,115,22,0.3);">+ Add Rent Setup</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

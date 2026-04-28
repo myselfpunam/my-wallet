@@ -30,15 +30,15 @@
 <div class="grid grid-cols-3 gap-3 mb-5 fade-up fade-up-2">
     <div class="card py-3 text-center">
         <p class="text-slate-500 text-xs mb-1">Total Loaned</p>
-        <p class="text-cyan-400 font-bold font-mono">£{{ total_loaned|floatformat:2 }}</p>
+        <p class="text-cyan-400 font-bold font-mono">৳{{ total_loaned|floatformat:2 }}</p>
     </div>
     <div class="card py-3 text-center">
         <p class="text-slate-500 text-xs mb-1">Total Paid</p>
-        <p class="text-emerald-400 font-bold font-mono">£{{ total_paid|floatformat:2 }}</p>
+        <p class="text-emerald-400 font-bold font-mono">৳{{ total_paid|floatformat:2 }}</p>
     </div>
     <div class="card py-3 text-center">
         <p class="text-slate-500 text-xs mb-1">Outstanding</p>
-        <p class="{% if outstanding >= 0 %}text-amber-400{% else %}text-emerald-400{% endif %} font-bold font-mono">£{{ outstanding|floatformat:2 }}</p>
+        <p class="{% if outstanding >= 0 %}text-amber-400{% else %}text-emerald-400{% endif %} font-bold font-mono">৳{{ outstanding|floatformat:2 }}</p>
     </div>
 </div>
 
@@ -69,13 +69,13 @@
                         <p class="text-slate-400">{{ loan.date|date:"d M Y" }}</p>
                     </td>
                     <td class="px-4 py-4 hidden sm:table-cell">
-                        <span class="text-slate-300 font-mono">£{{ loan.amount|floatformat:2 }}</span>
+                        <span class="text-slate-300 font-mono">৳{{ loan.amount|floatformat:2 }}</span>
                     </td>
                     <td class="px-4 py-4 hidden md:table-cell">
-                        <span class="text-emerald-400 font-mono">£{{ loan.get_total_paid|floatformat:2 }}</span>
+                        <span class="text-emerald-400 font-mono">৳{{ loan.get_total_paid|floatformat:2 }}</span>
                     </td>
                     <td class="px-4 py-4">
-                        <span class="{% if loan.get_remaining > 0 %}text-amber-400{% else %}text-emerald-400{% endif %} font-mono">£{{ loan.get_remaining|floatformat:2 }}</span>
+                        <span class="{% if loan.get_remaining > 0 %}text-amber-400{% else %}text-emerald-400{% endif %} font-mono">৳{{ loan.get_remaining|floatformat:2 }}</span>
                     </td>
                     <td class="px-4 py-4 hidden lg:table-cell">
                         <span class="text-slate-500 text-xs">{{ loan.note|truncatechars:35|default:"—" }}</span>
