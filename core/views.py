@@ -55,7 +55,7 @@ from .models import (
     PaymentReminder, ReminderEntry,
     PasswordResetToken, UserProfile,
 )
-from .utils import send_verification_email, send_password_reset_email
+from .utils import send_verification_email, send_password_reset_email, send_account_deletion_email
 
 logger = logging.getLogger(__name__)
 
@@ -107,11 +107,12 @@ def signup_view(request):
         if form.is_valid():
             email = form.cleaned_data['email']
 
-            # Remove stale inactive accounts sharing this email (previous incomplete signup)
+            # Detect if a previous unverified attempt exists before removing it
+            had_pending = User.objects.filter(email=email, is_active=False).exists()
             User.objects.filter(email=email, is_active=False).delete()
 
             if User.objects.filter(email=email, is_active=True).exists():
-                messages.error(request, 'An account with this email already exists.')
+                messages.error(request, 'This email is already registered. Please log in.')
                 return render(request, 'core/signup.html', {'form': form})
 
             # Create inactive user — not usable until OTP verified
@@ -143,15 +144,22 @@ def signup_view(request):
                 )
                 return render(request, 'core/signup.html', {'form': form})
 
-            request.session['signup_user_id']     = user.id
-            request.session['signup_token']       = token.token
+            request.session['signup_user_id']      = user.id
+            request.session['signup_token']        = token.token
             request.session['signup_otp_attempts'] = 0
 
-            messages.success(
-                request,
-                f'A 6-digit verification code has been sent to {email}. '
-                f'It expires in {OTP_EXPIRY_MINUTES} minutes.'
-            )
+            if had_pending:
+                messages.info(
+                    request,
+                    f'Account not verified. A new OTP has been sent to {email}. '
+                    f'It expires in {OTP_EXPIRY_MINUTES} minutes.'
+                )
+            else:
+                messages.success(
+                    request,
+                    f'A 6-digit verification code has been sent to {email}. '
+                    f'It expires in {OTP_EXPIRY_MINUTES} minutes.'
+                )
             return redirect('signup_verify_otp')
         else:
             messages.error(request, 'Please fix the errors below.')
@@ -1338,6 +1346,128 @@ def change_password_view(request):
         'page_title': 'Change Password',
     }
     return render(request, 'core/change_password.html', context)
+
+
+# ---------------------------------------------------------------------------
+# Account Deletion (OTP-verified)
+# ---------------------------------------------------------------------------
+
+def _clear_deletion_session(request):
+    for key in ('deletion_token', 'deletion_user_id', 'deletion_otp_attempts'):
+        request.session.pop(key, None)
+
+
+@login_required
+def delete_account_request_view(request):
+    """Step 1 — send OTP to the user's email to confirm deletion."""
+    if request.method != 'POST':
+        return redirect('profile')
+
+    user = request.user
+    token, raw_otp = PasswordResetToken.create_for_user(
+        user=user,
+        token_type='account_deletion',
+        expiry_minutes=OTP_EXPIRY_MINUTES,
+    )
+    sent = send_account_deletion_email(user, raw_otp)
+    del raw_otp
+
+    if not sent:
+        messages.error(request, 'Could not send verification email. Please try again.')
+        return redirect('profile')
+
+    request.session['deletion_token']   = token.token
+    request.session['deletion_user_id'] = user.id
+    request.session.pop('deletion_otp_attempts', None)
+    messages.info(
+        request,
+        f'A confirmation code has been sent to {user.email}. '
+        f'Enter it below to permanently delete your account.'
+    )
+    return redirect('delete_account_verify')
+
+
+@login_required
+def delete_account_verify_view(request):
+    """Step 2 — verify OTP then permanently delete the account."""
+    deletion_token_value = request.session.get('deletion_token')
+    deletion_user_id     = request.session.get('deletion_user_id')
+
+    if not deletion_token_value or deletion_user_id != request.user.id:
+        _clear_deletion_session(request)
+        messages.error(request, 'Invalid deletion request. Please try again.')
+        return redirect('profile')
+
+    try:
+        token_obj = PasswordResetToken.objects.get(
+            token=deletion_token_value,
+            token_type='account_deletion',
+            used=False,
+            user=request.user,
+        )
+    except PasswordResetToken.DoesNotExist:
+        _clear_deletion_session(request)
+        messages.error(request, 'Invalid or expired confirmation request.')
+        return redirect('profile')
+
+    if token_obj.is_expired:
+        token_obj.used = True
+        token_obj.save(update_fields=['used'])
+        _clear_deletion_session(request)
+        messages.error(request, 'Confirmation code expired. Please request a new one.')
+        return redirect('profile')
+
+    if request.method == 'POST':
+        form = VerifyOTPForm(request.POST)
+        if form.is_valid():
+            entered_otp = form.cleaned_data['otp_code']
+            attempts    = request.session.get('deletion_otp_attempts', 0)
+
+            if attempts >= OTP_MAX_ATTEMPTS:
+                token_obj.used = True
+                token_obj.save(update_fields=['used'])
+                _clear_deletion_session(request)
+                messages.error(request, 'Too many incorrect attempts. Deletion cancelled.')
+                return redirect('profile')
+
+            if token_obj.verify_otp(entered_otp):
+                # ── Valid OTP → delete account ──────────────────────────
+                token_obj.used = True
+                token_obj.save(update_fields=['used'])
+                _clear_deletion_session(request)
+
+                user = request.user
+                email = user.email
+                logout(request)
+                user.delete()   # CASCADE removes all related data
+
+                logger.info("Account permanently deleted for email %s", email)
+                messages.success(
+                    request,
+                    'Your account has been permanently deleted. '
+                    'You can register again with the same email at any time.'
+                )
+                return redirect('signup')
+            else:
+                attempts += 1
+                request.session['deletion_otp_attempts'] = attempts
+                remaining = OTP_MAX_ATTEMPTS - attempts
+                if remaining <= 0:
+                    token_obj.used = True
+                    token_obj.save(update_fields=['used'])
+                    _clear_deletion_session(request)
+                    messages.error(request, 'Too many incorrect attempts. Deletion cancelled.')
+                    return redirect('profile')
+                messages.error(request, f'Invalid code. {remaining} attempt(s) remaining.')
+    else:
+        form = VerifyOTPForm()
+        request.session.pop('deletion_otp_attempts', None)
+
+    return render(request, 'core/delete_account_verify.html', {
+        'form': form,
+        'email': request.user.email,
+        'attempts_left': OTP_MAX_ATTEMPTS - request.session.get('deletion_otp_attempts', 0),
+    })
 
 
 @login_required

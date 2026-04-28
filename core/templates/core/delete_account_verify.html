@@ -1,0 +1,62 @@
+{% extends 'core/base.html' %}
+{% block title %}Confirm Account Deletion{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto fade-up">
+
+    <!-- Header -->
+    <div class="text-center mb-8">
+        <div class="w-16 h-16 rounded-2xl bg-red-500/15 flex items-center justify-center text-3xl mx-auto mb-4">🗑️</div>
+        <h1 class="text-2xl font-bold text-white mb-2">Confirm Deletion</h1>
+        <p class="text-slate-400 text-sm">
+            Enter the 6-digit code sent to
+        </p>
+        <p class="text-indigo-400 font-semibold text-sm mt-1 break-all">{{ email }}</p>
+    </div>
+
+    <!-- Warning Banner -->
+    <div class="flex items-start gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-400 text-sm mb-6">
+        <span class="text-lg flex-shrink-0 mt-0.5">⚠️</span>
+        <div>
+            <p class="font-semibold mb-0.5">This action is irreversible</p>
+            <p class="text-red-400/80 text-xs">All your transactions, loans, receivables, reminders, and profile data will be permanently deleted.</p>
+        </div>
+    </div>
+
+    <!-- OTP Form -->
+    <div class="card" style="border-color: rgba(239,68,68,0.2); background: linear-gradient(145deg, rgba(239,68,68,0.04) 0%, #161b27 100%);">
+        <form method="post" class="space-y-5">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-slate-300 text-sm font-medium mb-2">Confirmation Code</label>
+                {{ form.otp_code }}
+                {% if form.otp_code.errors %}
+                    <p class="text-red-400 text-xs mt-1">{{ form.otp_code.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Attempts indicator -->
+            <div class="flex items-center justify-between text-xs text-slate-500">
+                <span>Code expires in 10 minutes</span>
+                <span>{{ attempts_left }} attempt{{ attempts_left|pluralize }} remaining</span>
+            </div>
+
+            <button type="submit"
+                    class="w-full py-3 px-4 rounded-xl font-semibold text-sm transition-all duration-200 text-white"
+                    style="background: linear-gradient(135deg, #dc2626, #b91c1c); box-shadow: 0 4px 15px rgba(220,38,38,0.3);">
+                🗑️ Permanently Delete My Account
+            </button>
+        </form>
+    </div>
+
+    <!-- Cancel -->
+    <div class="mt-4 text-center">
+        <a href="{% url 'profile' %}"
+           class="text-slate-400 hover:text-white text-sm transition-colors">
+            ← Cancel and go back to profile
+        </a>
+    </div>
+
+</div>
+{% endblock %}

@@ -347,6 +347,7 @@ class PasswordResetToken(models.Model):
     TOKEN_TYPE_CHOICES = [
         ('password_reset', 'Password Reset'),
         ('email_verification', 'Email Verification'),
+        ('account_deletion', 'Account Deletion'),
     ]
 
     # --- Core fields ---

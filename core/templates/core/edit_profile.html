@@ -40,6 +40,16 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- Username -->
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-slate-300 mb-2">Username *</label>
+                {{ form.username }}
+                {% if form.username.errors %}
+                    <p class="text-red-400 text-xs mt-1">{{ form.username.errors.0 }}</p>
+                {% endif %}
+                <p class="text-slate-500 text-xs mt-1">Used to log in — must be unique across all accounts.</p>
+            </div>
         </div>
 
         <!-- Contact Information Section -->

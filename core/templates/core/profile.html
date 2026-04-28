@@ -102,7 +102,7 @@
 </div>
 
 <!-- Security Section -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6 fade-up fade-up-3">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 fade-up fade-up-3 mb-6">
     <!-- Change Password Card -->
     <div class="card">
         <div class="flex items-center gap-3 mb-4">
@@ -125,6 +125,56 @@
         <a href="{% url 'edit_profile' %}" class="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors">
             Edit Profile
         </a>
+    </div>
+</div>
+
+<!-- Danger Zone -->
+<div class="card fade-up" style="border-color: rgba(239,68,68,0.25); background: linear-gradient(145deg, rgba(239,68,68,0.05) 0%, #161b27 100%);">
+    <div class="flex items-start gap-4">
+        <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center text-xl flex-shrink-0 mt-0.5">⚠️</div>
+        <div class="flex-1">
+            <h3 class="text-lg font-bold text-red-400 mb-1">Danger Zone</h3>
+            <p class="text-slate-400 text-sm mb-1">Permanently delete your account and all associated data.</p>
+            <p class="text-slate-500 text-xs mb-5">
+                This will delete all your transactions, loans, receivables, reminders, and profile data.
+                <strong class="text-red-400">This action cannot be undone.</strong>
+                You will receive a confirmation code at <span class="text-white">{{ user.email }}</span> before anything is deleted.
+            </p>
+            <button onclick="document.getElementById('delete-confirm-modal').classList.remove('hidden')"
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-red-600/20 hover:bg-red-600/40 border border-red-500/40 hover:border-red-500/70 text-red-400 hover:text-red-300 rounded-lg font-semibold text-sm transition-all">
+                🗑️ Delete My Account
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirmation Modal -->
+<div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center px-4" style="background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);">
+    <div class="card max-w-md w-full" style="border-color:rgba(239,68,68,0.3);">
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-10 h-10 rounded-lg bg-red-500/20 flex items-center justify-center text-xl">🗑️</div>
+            <h3 class="text-lg font-bold text-white">Delete Account?</h3>
+        </div>
+        <p class="text-slate-400 text-sm mb-2">
+            A <strong class="text-white">6-digit confirmation code</strong> will be sent to:
+        </p>
+        <p class="text-indigo-400 font-semibold text-sm mb-4 break-all">{{ user.email }}</p>
+        <p class="text-slate-500 text-xs mb-6">
+            You must enter the code on the next page to confirm deletion. All your data will be permanently removed.
+        </p>
+        <div class="flex gap-3">
+            <form method="post" action="{% url 'delete_account_request' %}" class="flex-1">
+                {% csrf_token %}
+                <button type="submit"
+                        class="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-xl font-semibold text-sm transition-colors">
+                    Send Code & Continue
+                </button>
+            </form>
+            <button onclick="document.getElementById('delete-confirm-modal').classList.add('hidden')"
+                    class="flex-1 py-3 px-4 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 rounded-xl font-semibold text-sm transition-all">
+                Cancel
+            </button>
+        </div>
     </div>
 </div>
 

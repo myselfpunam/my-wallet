@@ -127,6 +127,45 @@ def _build_payment_plain_text(ctx: dict) -> str:
     )
 
 
+def send_account_deletion_email(user, raw_otp: str) -> bool:
+    """
+    Send a 6-digit OTP to confirm account deletion.
+    Returns True on success, False on any failure.
+    """
+    try:
+        context = {
+            'display_name': user.first_name or user.username,
+            'otp_code': raw_otp,
+            'expiry_minutes': 10,
+            'app_name': 'My Wallet',
+        }
+        plain_body = (
+            f"Hello {context['display_name']},\n\n"
+            f"You requested to permanently delete your My Wallet account.\n\n"
+            f"Your confirmation code is:\n\n"
+            f"    {raw_otp}\n\n"
+            f"This code expires in 10 minutes.\n\n"
+            f"If you did NOT request this, please ignore this email and change your password immediately.\n\n"
+            f"WARNING: This action is irreversible. All your data will be permanently deleted.\n\n"
+            f"— The My Wallet Team\n"
+        )
+        send_mail(
+            subject='Confirm account deletion — My Wallet',
+            message=plain_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,
+        )
+        logger.info("Account deletion OTP sent to %s", user.email)
+        return True
+    except BadHeaderError:
+        logger.error("BadHeaderError sending deletion OTP to %s", user.email)
+        return False
+    except Exception as exc:
+        logger.error("Failed to send deletion OTP to %s: %s", user.email, exc)
+        return False
+
+
 def send_password_reset_email(user, raw_otp: str) -> bool:
     """
     Send a 6-digit password-reset OTP to *user*.

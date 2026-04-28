@@ -54,9 +54,9 @@ class SignUpForm(UserCreationForm):
         self.fields['email'].widget.attrs['placeholder'] = 'Email address'
 
     def clean_email(self):
-        """Ensure email is unique across the system."""
+        """Block only verified (active) accounts. Unverified/pending accounts are replaced on re-signup."""
         email = self.cleaned_data.get('email')
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email=email, is_active=True).exists():
             raise forms.ValidationError(
                 'An account with this email already exists.',
                 code='email_exists'
@@ -73,7 +73,8 @@ class LoginForm(AuthenticationForm):
                 'text-white placeholder-slate-400 focus:outline-none focus:ring-2 '
                 'focus:ring-indigo-500 focus:border-transparent transition-all duration-200'
             )
-        self.fields['username'].widget.attrs['placeholder'] = 'Username'
+        self.fields['username'].label = 'Username or Email'
+        self.fields['username'].widget.attrs['placeholder'] = 'Username or email address'
         self.fields['password'].widget.attrs['placeholder'] = 'Password'
 
 
@@ -429,17 +430,19 @@ class EditProfileForm(forms.ModelForm):
         max_length=30,
         required=True,
         label='First Name',
-        widget=forms.TextInput(attrs={
-            'placeholder': 'Enter your first name',
-        })
+        widget=forms.TextInput(attrs={'placeholder': 'Enter your first name'}),
     )
     last_name = forms.CharField(
         max_length=30,
         required=False,
         label='Last Name',
-        widget=forms.TextInput(attrs={
-            'placeholder': 'Enter your last name (optional)',
-        })
+        widget=forms.TextInput(attrs={'placeholder': 'Enter your last name (optional)'}),
+    )
+    username = forms.CharField(
+        max_length=150,
+        required=True,
+        label='Username',
+        widget=forms.TextInput(attrs={'placeholder': 'Choose a unique username'}),
     )
 
     class Meta:
@@ -462,10 +465,11 @@ class EditProfileForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.user = user
         
-        # Set first and last names from User model if provided
+        # Set first/last name and username from User model if provided
         if user:
             self.fields['first_name'].initial = user.first_name
             self.fields['last_name'].initial = user.last_name
+            self.fields['username'].initial = user.username
         
         input_class = (
             'w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-xl '
@@ -477,6 +481,17 @@ class EditProfileForm(forms.ModelForm):
                 field.widget.attrs['class'] = input_class
             else:
                 field.widget.attrs['class'] = 'block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer'
+
+    def clean_username(self):
+        username = self.cleaned_data.get('username', '').strip()
+        if not username:
+            raise forms.ValidationError('Username cannot be blank.')
+        qs = User.objects.filter(username__iexact=username)
+        if self.user:
+            qs = qs.exclude(pk=self.user.pk)
+        if qs.exists():
+            raise forms.ValidationError('This username is already taken. Please choose another.')
+        return username
 
     def clean_profile_picture(self):
         """Validate profile picture file size (max 5MB)."""
@@ -528,6 +543,7 @@ class EditProfileForm(forms.ModelForm):
         if self.user:
             self.user.first_name = self.cleaned_data.get('first_name', '')
             self.user.last_name = self.cleaned_data.get('last_name', '')
+            self.user.username = self.cleaned_data.get('username', self.user.username)
             if commit:
                 self.user.save()
 

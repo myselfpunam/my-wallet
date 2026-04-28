@@ -46,4 +46,8 @@ urlpatterns = [
     path('profile/edit/', views.edit_profile_view, name='edit_profile'),
     path('profile/change-password/', views.change_password_view, name='change_password'),
     path('profile/delete-picture/', views.delete_profile_picture_view, name='delete_profile_picture'),
+
+    # Account deletion (OTP-verified)
+    path('profile/delete-account/', views.delete_account_request_view, name='delete_account_request'),
+    path('profile/delete-account/verify/', views.delete_account_verify_view, name='delete_account_verify'),
 ]
