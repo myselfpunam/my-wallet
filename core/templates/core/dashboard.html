@@ -267,27 +267,47 @@
     </div>
 
     {% if recent_transactions %}
-    <div class="space-y-2">
-        {% for tx in recent_transactions %}
-        <div class="table-row flex items-center gap-4 px-3 py-3 rounded-xl transition-colors">
-            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0
-                {% if tx.type == 'income' %}bg-emerald-500/10{% else %}bg-red-500/10{% endif %}">
-                {{ tx.get_category_icon }}
-            </div>
-            <div class="flex-1 min-w-0">
-                <p class="text-slate-200 text-sm font-medium">{{ tx.get_category_display_name }}</p>
-                <p class="text-slate-500 text-xs">{{ tx.date|date:"d M Y" }}{% if tx.note %} · {{ tx.note|truncatechars:30 }}{% endif %}</p>
-            </div>
-            <div class="text-right flex-shrink-0">
-                <p class="font-semibold font-mono {% if tx.type == 'income' %}text-emerald-400{% else %}text-red-400{% endif %}">
-                    {% if tx.type == 'income' %}+{% else %}-{% endif %}£{{ tx.amount|floatformat:2 }}
-                </p>
-                <span class="{% if tx.type == 'income' %}badge-income{% else %}badge-expense{% endif %} text-xs">
-                    {{ tx.type|title }}
-                </span>
-            </div>
-        </div>
-        {% endfor %}
+    <div class="overflow-x-auto -mx-6">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-white/5">
+                    <th class="text-left text-slate-500 font-medium px-6 pb-3 text-xs uppercase tracking-wider">Date</th>
+                    <th class="text-left text-slate-500 font-medium px-4 pb-3 text-xs uppercase tracking-wider">Title</th>
+                    <th class="text-left text-slate-500 font-medium px-4 pb-3 text-xs uppercase tracking-wider hidden sm:table-cell">Category</th>
+                    <th class="text-right text-slate-500 font-medium px-4 pb-3 text-xs uppercase tracking-wider">Amount</th>
+                    <th class="text-center text-slate-500 font-medium px-6 pb-3 text-xs uppercase tracking-wider hidden sm:table-cell">Type</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-white/3">
+                {% for tx in recent_transactions %}
+                <tr class="table-row transition-colors">
+                    <td class="px-6 py-3 whitespace-nowrap">
+                        <p class="text-slate-300 font-medium text-xs">{{ tx.date|date:"d M" }}</p>
+                        <p class="text-slate-600 text-xs">{{ tx.date|date:"Y" }}</p>
+                    </td>
+                    <td class="px-4 py-3 max-w-[140px]">
+                        <p class="text-slate-200 font-medium truncate text-xs">{{ tx.title|default:"—" }}</p>
+                    </td>
+                    <td class="px-4 py-3 hidden sm:table-cell">
+                        <div class="flex items-center gap-1.5">
+                            <span class="text-sm leading-none">{{ tx.get_category_icon }}</span>
+                            <span class="text-slate-400 text-xs">{{ tx.get_category_display_name }}</span>
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-right whitespace-nowrap">
+                        <span class="font-semibold font-mono text-sm {% if tx.type == 'income' %}text-emerald-400{% else %}text-red-400{% endif %}">
+                            {% if tx.type == 'income' %}+{% else %}-{% endif %}£{{ tx.amount|floatformat:2 }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-3 text-center hidden sm:table-cell">
+                        <span class="{% if tx.type == 'income' %}badge-income{% else %}badge-expense{% endif %}">
+                            {% if tx.type == 'income' %}↑{% else %}↓{% endif %} {{ tx.type|title }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% else %}
     <div class="text-center py-12">

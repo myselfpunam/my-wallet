@@ -60,37 +60,38 @@
             <thead>
                 <tr class="border-b border-white/5">
                     <th class="text-left text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Date</th>
-                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Type</th>
-                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden sm:table-cell">Category / Source</th>
-                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden md:table-cell">Note</th>
-                    <th class="text-right text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Amount</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Title</th>
+                    <th class="text-left text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden sm:table-cell">Category</th>
+                    <th class="text-right text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider">Amount</th>
+                    <th class="text-center text-slate-500 font-medium px-4 py-4 text-xs uppercase tracking-wider hidden sm:table-cell">Type</th>
                     <th class="text-right text-slate-500 font-medium px-6 py-4 text-xs uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-white/3">
                 {% for tx in transactions %}
                 <tr class="table-row transition-colors group">
-                    <td class="px-6 py-4">
+                    <td class="px-6 py-4 whitespace-nowrap">
                         <p class="text-slate-300 font-medium">{{ tx.date|date:"d M" }}</p>
                         <p class="text-slate-600 text-xs">{{ tx.date|date:"Y" }}</p>
                     </td>
-                    <td class="px-4 py-4">
-                        <span class="{% if tx.type == 'income' %}badge-income{% else %}badge-expense{% endif %}">
-                            {% if tx.type == 'income' %}↑{% else %}↓{% endif %} {{ tx.type|title }}
-                        </span>
+                    <td class="px-4 py-4 max-w-[180px]">
+                        <p class="text-slate-200 font-medium truncate">{{ tx.title|default:"—" }}</p>
+                        {% if tx.note %}<p class="text-slate-600 text-xs truncate mt-0.5">{{ tx.note|truncatechars:30 }}</p>{% endif %}
                     </td>
                     <td class="px-4 py-4 hidden sm:table-cell">
                         <div class="flex items-center gap-2">
-                            <span class="text-lg">{{ tx.get_category_icon }}</span>
+                            <span class="text-lg leading-none">{{ tx.get_category_icon }}</span>
                             <span class="text-slate-300">{{ tx.get_category_display_name }}</span>
                         </div>
                     </td>
-                    <td class="px-4 py-4 hidden md:table-cell">
-                        <span class="text-slate-500 text-xs">{{ tx.note|truncatechars:35|default:"—" }}</span>
-                    </td>
-                    <td class="px-6 py-4 text-right">
+                    <td class="px-4 py-4 text-right whitespace-nowrap">
                         <span class="font-semibold font-mono {% if tx.type == 'income' %}text-emerald-400{% else %}text-red-400{% endif %}">
                             {% if tx.type == 'income' %}+{% else %}-{% endif %}£{{ tx.amount|floatformat:2 }}
+                        </span>
+                    </td>
+                    <td class="px-4 py-4 text-center hidden sm:table-cell">
+                        <span class="{% if tx.type == 'income' %}badge-income{% else %}badge-expense{% endif %}">
+                            {% if tx.type == 'income' %}↑{% else %}↓{% endif %} {{ tx.type|title }}
                         </span>
                     </td>
                     <td class="px-6 py-4 text-right">
